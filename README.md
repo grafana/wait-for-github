@@ -6,7 +6,7 @@ This is a small program that can wait for things to happen on GitHub.
 
 ```
 NAME:
-   wait-for-github - Wait for a GitHub PR to be merged
+   wait-for-github - Wait for things to happen on GitHub
 
 USAGE:
    wait-for-github [global options] command [command options] [arguments...]
@@ -17,11 +17,11 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --debug, -d                                    Enable debug logging (default: false)
+   --log-level value, -l value                    Set the log level. Valid levels are: panic, fatal, error, warning, info, debug, trace. (default: "info")
    --github-app-private-key-path value, -p value  Path to the GitHub App private key
    --github-app-private-key value                 Contents of the GitHub App private key [$GITHUB_APP_PRIVATE_KEY]
-   --github-app-id value                          GitHub App ID [$GITHUB_APP_ID]
-   --github-app-installation-id value             GitHub App installation ID [$GITHUB_APP_INSTALLATION_ID]
+   --github-app-id value                          GitHub App ID (default: 0) [$GITHUB_APP_ID]
+   --github-app-installation-id value             GitHub App installation ID (default: 0) [$GITHUB_APP_INSTALLATION_ID]
    --github-token value                           GitHub token. If not provided, the app will try to use the GitHub App authentication mechanism. [$GITHUB_TOKEN]
    --recheck-interval value                       Interval after which to recheck GitHub. (default: 30s) [$RECHECK_INTERVAL]
    --timeout value                                Timeout after which to stop checking GitHub. (default: 168h0m0s) [$TIMEOUT]
