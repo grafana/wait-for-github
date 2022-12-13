@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "dependencies": [
+    {
+      "source": {
+        "git": {
+          "remote": "https://github.com/Duologic/drone-libsonnet.git",
+          "subdir": ""
+        }
+      },
+      "version": "master"
+    }
+  ],
+  "legacyImports": true
+}
