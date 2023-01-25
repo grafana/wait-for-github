@@ -18,7 +18,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"regexp"
 	"strconv"
 
@@ -87,6 +89,12 @@ func parsePRArguments(c *cli.Context) error {
 	return nil
 }
 
+type commitInfo struct {
+	Owner  string `json:"owner"`
+	Repo   string `json:"repo"`
+	Commit string `json:"commit"`
+}
+
 func checkPRMerged(c *cli.Context) error {
 	ctx := context.Background()
 
@@ -98,14 +106,35 @@ func checkPRMerged(c *cli.Context) error {
 		return err
 	}
 
+	commitInfoFile := c.String("commit-info-file")
+
 	checkPRMergedOrClosed := func() error {
-		merged, closed, err := githubClient.IsPRMergedOrClosed(ctx, prConf.owner, prConf.repo, prConf.pr)
+		mergedCommit, closed, err := githubClient.IsPRMergedOrClosed(ctx, prConf.owner, prConf.repo, prConf.pr)
 		if err != nil {
 			return err
 		}
 
-		if merged {
+		if mergedCommit != "" {
 			log.Info("PR is merged, exiting")
+			if commitInfoFile != "" {
+				commit := []commitInfo{
+					{
+						Owner:  prConf.owner,
+						Repo:   prConf.repo,
+						Commit: mergedCommit,
+					},
+				}
+
+				jsonCommit, err := json.MarshalIndent(commit, "", "  ")
+				if err != nil {
+					return fmt.Errorf("failed to marshal commit info to json: %w", err)
+				}
+
+				log.Debugf("Writing commit info to file %s", commitInfoFile)
+				if err := ioutil.WriteFile(commitInfoFile, jsonCommit, 0644); err != nil {
+					return fmt.Errorf("failed to write commit info to file: %w", err)
+				}
+			}
 			return cli.Exit("PR is merged", 0)
 		}
 
@@ -124,6 +153,13 @@ var prCommand = &cli.Command{
 	Name:      "pr",
 	Usage:     "Wait for a PR to be merged",
 	ArgsUsage: "<https://github.com/OWNER/REPO/pulls/PR|owner> [<repo> <pr>]",
-	Before:    parsePRArguments,
-	Action:    checkPRMerged,
+	Flags: []cli.Flag{
+		&cli.StringFlag{
+			Name: "commit-info-file",
+			Usage: "Path to a file which the commit info will be written. " +
+				"The file will be overwritten if it already exists.",
+		},
+	},
+	Before: parsePRArguments,
+	Action: checkPRMerged,
 }
