@@ -30,7 +30,7 @@ import (
 )
 
 type GithubClient interface {
-	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (bool, bool, error)
+	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, error)
 	GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (CIStatus, error)
 }
 
@@ -83,13 +83,19 @@ func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installa
 	return &GHClient{client: githubClient}, nil
 }
 
-func (c *GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (bool, bool, error) {
+func (c *GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, error) {
 	pr, _, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
 	if err != nil {
-		return false, false, fmt.Errorf("failed to query GitHub: %w", err)
+		return "", false, fmt.Errorf("failed to query GitHub: %w", err)
 	}
 
-	return pr.GetMerged(), pr.GetState() == "closed", nil
+	sha := ""
+
+	if pr.GetMerged() {
+		sha = pr.GetMergeCommitSHA()
+	}
+
+	return sha, pr.GetState() == "closed", nil
 }
 
 type CIStatus uint
