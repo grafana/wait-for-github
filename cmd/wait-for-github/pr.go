@@ -117,12 +117,10 @@ func checkPRMerged(c *cli.Context) error {
 		if mergedCommit != "" {
 			log.Info("PR is merged, exiting")
 			if commitInfoFile != "" {
-				commit := []commitInfo{
-					{
-						Owner:  prConf.owner,
-						Repo:   prConf.repo,
-						Commit: mergedCommit,
-					},
+				commit := commitInfo{
+					Owner:  prConf.owner,
+					Repo:   prConf.repo,
+					Commit: mergedCommit,
 				}
 
 				jsonCommit, err := json.MarshalIndent(commit, "", "  ")
