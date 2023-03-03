@@ -3,7 +3,7 @@ module github.com/grafana/wait-for-github
 go 1.19
 
 require (
-	github.com/bradleyfalzon/ghinstallation/v2 v2.1.0
+	github.com/bradleyfalzon/ghinstallation/v2 v2.2.0
 	github.com/google/go-github/v48 v48.2.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/sirupsen/logrus v1.9.0
@@ -15,9 +15,9 @@ require (
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-github/v45 v45.2.0 // indirect
+	github.com/google/go-github/v50 v50.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
