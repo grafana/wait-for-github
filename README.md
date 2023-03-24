@@ -60,6 +60,7 @@ USAGE:
    wait-for-github ci [command options] <https://github.com/OWNER/REPO/commit/HASH|owner> [<repo> <ref>]
 
 OPTIONS:
+   --check value, -c value [ --check value, -c value ]  Check the status of a specific CI check. By default, the status of all checks is checked.
    --help, -h  show help (default: false)
 ```
 This command will wait for CI checks to finish for a ref. If they finish successfully it will exit `0` and otherwise it will exit `1`.

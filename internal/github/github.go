@@ -32,6 +32,7 @@ import (
 type GithubClient interface {
 	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, error)
 	GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (CIStatus, error)
+	GetCIStatusForChecks(ctx context.Context, owner, repo string, commitHash string, checkNames []string) (CIStatus, []string, error)
 }
 
 type AuthInfo struct {
@@ -127,4 +128,107 @@ func (c *GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref 
 	}
 
 	return CIStatusUnknown, nil
+}
+
+func (c *GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check string) (CIStatus, error) {
+	listOptions := github.ListOptions{
+		PerPage: 100,
+	}
+
+	opt := &github.ListCheckRunsOptions{
+		CheckName:   github.String(check),
+		ListOptions: listOptions,
+		Filter:      github.String("latest"),
+	}
+
+	checkRuns, _, err := c.client.Checks.ListCheckRunsForRef(ctx, owner, repoName, ref, opt)
+	if err != nil {
+		return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+	}
+
+	statuses := make([]*github.RepoStatus, 0)
+
+	for _, checkRun := range checkRuns.CheckRuns {
+		switch checkRun.GetStatus() {
+		case "completed":
+			switch checkRun.GetConclusion() {
+			case "success":
+				return CIStatusPassed, nil
+			case "skipped":
+				return CIStatusPassed, nil
+			default:
+				return CIStatusFailed, nil
+			}
+		case "queued":
+			return CIStatusPending, nil
+		case "in_progress":
+			return CIStatusPending, nil
+		}
+	}
+
+	// didn't find the check run, so list statuses. we can't filter by status
+	// name like we can for checks, so retrieve all results the first time
+	if len(statuses) == 0 {
+		statuses, _, err = c.client.Repositories.ListStatuses(ctx, owner, repoName, ref, &listOptions)
+		if err != nil {
+			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+		}
+	}
+
+	// get the statuses for the commit
+	for _, status := range statuses {
+		if status.GetContext() != check {
+			continue
+		}
+
+		switch status.GetState() {
+		case "success":
+			return CIStatusPassed, nil
+		case "failure":
+			return CIStatusFailed, nil
+		case "pending":
+			return CIStatusPending, nil
+		case "error":
+			return CIStatusFailed, nil
+		}
+	}
+
+	return CIStatusUnknown, nil
+}
+
+// GetCIStatusForCheck returns the CI status for a specific commit. It looks at
+// both 'checks' and 'statuses'.
+func (c *GHClient) GetCIStatusForChecks(ctx context.Context, owner, repoName string, ref string, checkNames []string) (CIStatus, []string, error) {
+	allFinished := true
+	awaitedChecks := make(map[string]bool, len(checkNames))
+	var status CIStatus
+
+	for _, checkName := range checkNames {
+		status, err := c.getOneStatus(ctx, owner, repoName, ref, checkName)
+		if err != nil {
+			return CIStatusUnknown, nil, fmt.Errorf("failed to get CI status for check %s: %w", checkName, err)
+		}
+
+		if status == CIStatusFailed {
+			return status, []string{checkName}, nil
+		}
+
+		if status != CIStatusPassed {
+			awaitedChecks[checkName] = false
+			allFinished = false
+		}
+	}
+
+	if allFinished {
+		return status, nil, nil
+	}
+
+	stillWaitingFor := []string{}
+	for check, finished := range awaitedChecks {
+		if !finished {
+			stillWaitingFor = append(stillWaitingFor, check)
+		}
+	}
+
+	return CIStatusPending, stillWaitingFor, nil
 }
