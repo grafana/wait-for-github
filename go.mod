@@ -8,7 +8,7 @@ require (
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/sirupsen/logrus v1.9.0
 	github.com/stretchr/testify v1.8.2
-	github.com/urfave/cli/v2 v2.25.0
+	github.com/urfave/cli/v2 v2.25.1
 	golang.org/x/oauth2 v0.6.0
 )
 
