@@ -30,7 +30,7 @@ import (
 )
 
 type GithubClient interface {
-	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, error)
+	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error)
 	GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (CIStatus, error)
 	GetCIStatusForChecks(ctx context.Context, owner, repo string, commitHash string, checkNames []string) (CIStatus, []string, error)
 }
@@ -84,19 +84,23 @@ func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installa
 	return &GHClient{client: githubClient}, nil
 }
 
-func (c *GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, error) {
+func (c *GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, int64, error) {
 	pr, _, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
 	if err != nil {
-		return "", false, fmt.Errorf("failed to query GitHub: %w", err)
+		return "", false, -1, fmt.Errorf("failed to query GitHub: %w", err)
 	}
 
-	sha := ""
+	var (
+		sha      string
+		mergedAt int64
+	)
 
 	if pr.GetMerged() {
 		sha = pr.GetMergeCommitSHA()
+		mergedAt = pr.GetMergedAt().Unix()
 	}
 
-	return sha, pr.GetState() == "closed", nil
+	return sha, pr.GetState() == "closed", mergedAt, nil
 }
 
 type CIStatus uint

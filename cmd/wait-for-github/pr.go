@@ -90,9 +90,10 @@ func parsePRArguments(c *cli.Context) error {
 }
 
 type commitInfo struct {
-	Owner  string `json:"owner"`
-	Repo   string `json:"repo"`
-	Commit string `json:"commit"`
+	Owner    string `json:"owner"`
+	Repo     string `json:"repo"`
+	Commit   string `json:"commit"`
+	MergedAt int64  `json:"mergedAt"`
 }
 
 func checkPRMerged(c *cli.Context) error {
@@ -109,7 +110,7 @@ func checkPRMerged(c *cli.Context) error {
 	commitInfoFile := c.String("commit-info-file")
 
 	checkPRMergedOrClosed := func() error {
-		mergedCommit, closed, err := githubClient.IsPRMergedOrClosed(ctx, prConf.owner, prConf.repo, prConf.pr)
+		mergedCommit, closed, mergedAt, err := githubClient.IsPRMergedOrClosed(ctx, prConf.owner, prConf.repo, prConf.pr)
 		if err != nil {
 			return err
 		}
@@ -118,9 +119,10 @@ func checkPRMerged(c *cli.Context) error {
 			log.Info("PR is merged, exiting")
 			if commitInfoFile != "" {
 				commit := commitInfo{
-					Owner:  prConf.owner,
-					Repo:   prConf.repo,
-					Commit: mergedCommit,
+					Owner:    prConf.owner,
+					Repo:     prConf.repo,
+					Commit:   mergedCommit,
+					MergedAt: mergedAt,
 				}
 
 				jsonCommit, err := json.MarshalIndent(commit, "", "  ")

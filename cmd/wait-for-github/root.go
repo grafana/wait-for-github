@@ -115,6 +115,7 @@ func handleGlobalConfig(c *cli.Context) error {
 	token := c.String("github-token")
 	if token != "" {
 		log.Debug("Using GitHub token for authentication")
+		log.Debug("Using token starting with ", token[:10], "...")
 		cfg.AuthInfo.GithubToken = token
 
 		return nil

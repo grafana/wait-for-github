@@ -43,7 +43,8 @@ USAGE:
    wait-for-github pr [command options] <https://github.com/OWNER/REPO/pulls/PR|owner> [<repo> <pr>]
 
 OPTIONS:
-   --help, -h  show help (default: false)
+   --commit-info-file value  Path to a file which the commit info will be written. The file will be overwritten if it already exists.
+   --help, -h                show help
 ```
 
 This command will wait for the given PR (URL or owner/repo/number) to be merged
