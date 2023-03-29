@@ -61,10 +61,110 @@ USAGE:
    wait-for-github ci [command options] <https://github.com/OWNER/REPO/commit/HASH|owner> [<repo> <ref>]
 
 OPTIONS:
-   --check value, -c value [ --check value, -c value ]  Check the status of a specific CI check. By default, the status of all checks is checked.
+   --check value, -c value [ --check value, -c value ]  Check the status of a specific CI check. By default, the status of all checks is checked. [$GITHUB_CI_CHECKS]
    --help, -h  show help (default: false)
 ```
-This command will wait for CI checks to finish for a ref. If they finish successfully it will exit `0` and otherwise it will exit `1`.
+
+This command will wait for CI checks to finish for a ref. If they finish
+successfully it will exit `0` and otherwise it will exit `1`.
+
+## Action
+
+This repository also contains a GitHub action definition. You can add this as a
+step to your workflow to sync running steps after CI has finished or a PR has
+been merged.
+
+
+### Action parameters
+
+#### `ref`
+
+**Required**. Git ref to check.
+
+#### `wait-for`
+
+**Required**. What to wait for. Valid values are `"ci"` or `"pr"`.
+
+- `"ci"`: Waits for the CI to finish. 
+- `"pr"`: Waits for the PR to be merged.
+
+
+#### `checks-to-wait-for`
+
+The comma-separated names of the checks to wait for. Use this when your checks
+might take some time to be reported to GitHub and they aren't marked as required
+checks on the repository. Only used when `wait-for` is set to `"ci"`. Optional.
+If not set, all checks will be waited for, but then the tool may miss checks
+which are not added immediately.
+
+#### `owner`
+
+GitHub repo owner. Optional. Default is the current repository's owner,
+`${{ github.repository_owner }}`.
+
+#### `interval`
+
+Recheck interval (i.e. poll this often) in golang duration format. Optional.
+Default is `30s`.
+
+#### `repo`
+
+GitHub repo name. Optional. Default is the current repository, 
+`${{ github.event.repository.name }}`.
+
+#### `token`
+
+The GitHub token to use. Optional. Default is the github token provided by the
+action.
+
+#### `timeout`
+
+Timeout in golang duration format. Optional. Default is `5m`.
+
+### Example usage
+
+Since the project is not yet versioned, we recommend that you use a specific SHA
+when using the action, rather than taking the latest which might break
+compatibility.
+
+```yaml
+name: Foo the bar if the Atlantis plan succeeds
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+   checks: read
+   contents: read
+   pull-requests: write
+   statuses: read
+
+jobs:
+  wait-for-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Atlantis to plan
+        uses: grafana/wait-for-github@SHA
+        id: wait-for-checks
+        with:
+          wait-for: ci
+          checks-to-wait-for: atlantis/plan
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Comment on check failure
+        if: failure()
+        run: |
+          gh pr review --comment -b "Could not foo this PR because the Atlantis plan failed." "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - name: Do something if the plan succeeded
+        run: |
+          gh pr review --comment -b "Yay I'm so happy that the plan succeeded!" "$PR_URL"
+        env:
+          PR_URL: ${{github.event.pull_request.html_url}}
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+```
 
 ## Contributing
 

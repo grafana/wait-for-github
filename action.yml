@@ -1,0 +1,49 @@
+name: Wait for GitHub
+description: Wait for things to happen on GitHub
+inputs:
+  token:
+    description: 'GitHub token'
+    required: false
+    default: ${{ github.token }}
+  timeout:
+    description: 'Timeout in golang duration format'
+    required: false
+    default: 5m
+  interval:
+    description: 'Recheck interval (poll this often) in golang duration format'
+    required: false
+    default: 30s
+  wait-for:
+    description: 'What to wait for. Valid values: "ci" (wait for CI to finish), "pr" (wait for PR to be merged)'
+    required: true
+  owner:
+    description: 'GitHub repo owner'
+    required: false
+    default: ${{ github.repository_owner }}
+  repo:
+    description: 'GitHub repo name'
+    required: false
+    default: ${{ github.event.repository.name }}
+  ref:
+    description: 'Git ref to check'
+    required: true
+  checks-to-wait-for:
+    description: 'The comma-separated names of the checks to wait for. Only used when wait-for is "ci"'
+    required: false
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+    GITHUB_TOKEN: ${{ inputs.token }}
+    GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
+  args:
+    - --log-level
+    - debug
+    - --timeout
+    - ${{ inputs.timeout }}
+    - --recheck-interval
+    - ${{ inputs.interval }}
+    - ${{ inputs.wait-for }}
+    - ${{ inputs.owner}}
+    - ${{ inputs.repo }}
+    - ${{ inputs.ref }}

@@ -173,6 +173,9 @@ var ciCommand = &cli.Command{
 			},
 			Usage: "Check the status of a specific CI check. " +
 				"By default, the status of all checks is checked.",
+			EnvVars: []string{
+				"GITHUB_CI_CHECKS",
+			},
 		},
 	},
 }
