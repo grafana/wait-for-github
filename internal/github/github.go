@@ -65,8 +65,8 @@ func AuthenticateWithToken(ctx context.Context, token string) GithubClient {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: httpcache.NewMemoryCacheTransport()})
 	httpClient := oauth2.NewClient(ctx, src)
-	httpClient.Transport = httpcache.NewMemoryCacheTransport()
 	githubClient := github.NewClient(httpClient)
 
 	return &GHClient{client: githubClient}
