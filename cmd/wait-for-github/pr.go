@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -131,7 +131,7 @@ func checkPRMerged(c *cli.Context) error {
 				}
 
 				log.Debugf("Writing commit info to file %s", commitInfoFile)
-				if err := ioutil.WriteFile(commitInfoFile, jsonCommit, 0644); err != nil {
+				if err := os.WriteFile(commitInfoFile, jsonCommit, 0644); err != nil {
 					return fmt.Errorf("failed to write commit info to file: %w", err)
 				}
 			}
