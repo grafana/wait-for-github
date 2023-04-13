@@ -24,14 +24,8 @@ local pipelines = {
       step.new('build + test', image=images.drone_plugin)
       + step.withSettings({
         dry_run: true,
-        password: {
-          from_secret: 'docker-hub-password',
-        },
         repo: image_to_push,
         tags: 'latest',
-        username: {
-          from_secret: 'docker-hub-username',
-        },
       }),
     ])
     + pipeline.trigger.onModifiedPaths(modified_paths)

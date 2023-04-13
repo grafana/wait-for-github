@@ -6,12 +6,8 @@ steps:
   name: build + test
   settings:
     dry_run: true
-    password:
-      from_secret: docker-hub-password
     repo: grafana/wait-for-github
     tags: latest
-    username:
-      from_secret: docker-hub-username
 trigger:
   event:
     include:
@@ -77,6 +73,6 @@ kind: secret
 name: docker-hub-password
 ---
 kind: signature
-hmac: 3657b20776f15dae625318706c23e4395002fdd94a83385a487cb6009da3d631
+hmac: 367cfc30f5220155a7f1c158300e45ee20d0d9cae5287d12c710e3ae752e31c8
 
 ...
