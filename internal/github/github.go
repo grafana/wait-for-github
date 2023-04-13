@@ -1,5 +1,5 @@
 // wait-for-github
-// Copyright (C) 2022, Grafana Labs
+// Copyright (C) 2022-2023, Grafana Labs
 
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License as published by the Free
@@ -24,6 +24,7 @@ import (
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v48/github"
 	"github.com/gregjones/httpcache"
+	"github.com/hashicorp/go-retryablehttp"
 	"golang.org/x/oauth2"
 
 	log "github.com/sirupsen/logrus"
@@ -60,12 +61,22 @@ func NewGithubClient(ctx context.Context, authInfo AuthInfo) (GithubClient, erro
 	return AuthenticateWithApp(ctx, authInfo.PrivateKey, authInfo.AppID, authInfo.InstallationID)
 }
 
+func cachingRetryableTransport() http.RoundTripper {
+	retryableClient := retryablehttp.NewClient()
+	httpCache := httpcache.NewMemoryCacheTransport()
+	retryableClient.HTTPClient.Transport = httpCache
+
+	return &retryablehttp.RoundTripper{
+		Client: retryableClient,
+	}
+}
+
 // AuthenticateWithToken authenticates with a GitHub token
 func AuthenticateWithToken(ctx context.Context, token string) GithubClient {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: httpcache.NewMemoryCacheTransport()})
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: cachingRetryableTransport()})
 	httpClient := oauth2.NewClient(ctx, src)
 	githubClient := github.NewClient(httpClient)
 
@@ -74,7 +85,7 @@ func AuthenticateWithToken(ctx context.Context, token string) GithubClient {
 
 // AuthenticateWithApp authenticates with a GitHub App
 func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installationID int64) (GithubClient, error) {
-	itr, err := ghinstallation.New(httpcache.NewMemoryCacheTransport(), appID, installationID, privateKey)
+	itr, err := ghinstallation.New(cachingRetryableTransport(), appID, installationID, privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}
