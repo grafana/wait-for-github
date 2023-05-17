@@ -6,7 +6,7 @@ require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.3.0
 	github.com/google/go-github/v48 v48.2.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
-	github.com/sirupsen/logrus v1.9.0
+	github.com/sirupsen/logrus v1.9.1
 	github.com/stretchr/testify v1.8.2
 	github.com/urfave/cli/v2 v2.25.3
 	golang.org/x/oauth2 v0.8.0
