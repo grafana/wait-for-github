@@ -3,7 +3,7 @@ module github.com/grafana/wait-for-github
 go 1.20
 
 require (
-	github.com/bradleyfalzon/ghinstallation/v2 v2.3.0
+	github.com/bradleyfalzon/ghinstallation/v2 v2.4.0
 	github.com/google/go-github/v48 v48.2.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/sirupsen/logrus v1.9.2
@@ -11,6 +11,8 @@ require (
 	github.com/urfave/cli/v2 v2.25.3
 	golang.org/x/oauth2 v0.8.0
 )
+
+require github.com/google/go-github/v52 v52.0.0 // indirect
 
 require (
 	github.com/ProtonMail/go-crypto v0.0.0-20230217124315-7d5c6f04bbb8 // indirect
