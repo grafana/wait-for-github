@@ -156,7 +156,7 @@ func TestResponsesAreCached(t *testing.T) {
 
 	pr := &github.PullRequest{
 		MergeCommitSHA: github.String("abc123"),
-		MergedAt:       &epoch,
+		MergedAt:       &github.Timestamp{Time: epoch},
 		Merged:         github.Bool(true),
 		State:          github.String("closed"),
 	}
