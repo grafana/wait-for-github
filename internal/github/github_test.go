@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v48/github"
+	"github.com/google/go-github/v52/github"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
@@ -156,7 +156,7 @@ func TestResponsesAreCached(t *testing.T) {
 
 	pr := &github.PullRequest{
 		MergeCommitSHA: github.String("abc123"),
-		MergedAt:       &epoch,
+		MergedAt:       &github.Timestamp{Time: epoch},
 		Merged:         github.Bool(true),
 		State:          github.String("closed"),
 	}

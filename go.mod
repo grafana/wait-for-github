@@ -3,9 +3,11 @@ module github.com/grafana/wait-for-github
 go 1.20
 
 require (
-	github.com/bradleyfalzon/ghinstallation/v2 v2.3.0
-	github.com/google/go-github/v48 v48.2.0
+	github.com/bradleyfalzon/ghinstallation/v2 v2.4.0
+	github.com/google/go-github/v52 v52.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
+	github.com/hashicorp/go-retryablehttp v0.7.2
+	github.com/migueleliasweb/go-github-mock v0.0.17
 	github.com/sirupsen/logrus v1.9.2
 	github.com/stretchr/testify v1.8.3
 	github.com/urfave/cli/v2 v2.25.3
@@ -23,8 +25,6 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/migueleliasweb/go-github-mock v0.0.17
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
