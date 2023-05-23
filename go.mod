@@ -7,7 +7,7 @@ require (
 	github.com/google/go-github/v52 v52.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-retryablehttp v0.7.2
-	github.com/migueleliasweb/go-github-mock v0.0.17
+	github.com/migueleliasweb/go-github-mock v0.0.18
 	github.com/sirupsen/logrus v1.9.2
 	github.com/stretchr/testify v1.8.3
 	github.com/urfave/cli/v2 v2.25.3
@@ -21,7 +21,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/go-github/v50 v50.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
