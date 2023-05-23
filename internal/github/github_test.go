@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v48/github"
+	"github.com/google/go-github/v52/github"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
