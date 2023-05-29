@@ -10,7 +10,7 @@ require (
 	github.com/migueleliasweb/go-github-mock v0.0.18
 	github.com/sirupsen/logrus v1.9.2
 	github.com/stretchr/testify v1.8.3
-	github.com/urfave/cli/v2 v2.25.3
+	github.com/urfave/cli/v2 v2.25.4
 	golang.org/x/oauth2 v0.8.0
 )
 
