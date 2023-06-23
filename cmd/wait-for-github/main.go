@@ -23,7 +23,7 @@ import (
 )
 
 func main() {
-	if err := root.Run(os.Args); err != nil {
+	if err := root().Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

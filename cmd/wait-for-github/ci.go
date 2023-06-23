@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/utils"
@@ -41,10 +42,9 @@ type ciConfig struct {
 var (
 	// https://regex101.com/r/dqMmDP/1
 	commitRegexp = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/commit/(?P<commit>[abcdef\d]+)/?.*`)
-	ciConf       ciConfig
 )
 
-func parseCIArguments(c *cli.Context) error {
+func parseCIArguments(c *cli.Context) (ciConfig, error) {
 	var owner, repo, ref string
 
 	switch {
@@ -53,7 +53,7 @@ func parseCIArguments(c *cli.Context) error {
 		url := c.Args().Get(0)
 		match := commitRegexp.FindStringSubmatch(url)
 		if match == nil {
-			return fmt.Errorf("invalid commit URL: %s", url)
+			return ciConfig{}, fmt.Errorf("invalid commit URL: %s", url)
 		}
 
 		owner = match[1]
@@ -74,23 +74,23 @@ func parseCIArguments(c *cli.Context) error {
 		cli.ShowCommandHelpAndExit(parent, "ci", 1)
 
 		// shouldn't get here, the previous line should exit
-		return nil
+		return ciConfig{}, nil
 	}
-
-	ciConf.owner = owner
-	ciConf.repo = repo
-	ciConf.ref = ref
-	ciConf.checks = c.StringSlice("check")
 
 	log.Debugf("Will wait for CI on %s/%s@%s", owner, repo, ref)
 
-	return nil
+	return ciConfig{
+		owner:  owner,
+		repo:   repo,
+		ref:    ref,
+		checks: c.StringSlice("check"),
+	}, nil
 }
 
-func handleCIStatus(status github.CIStatus) cli.ExitCoder {
+func handleCIStatus(status github.CIStatus, recheckInterval time.Duration) cli.ExitCoder {
 	switch status {
 	case github.CIStatusUnknown:
-		log.Infof("CI status is unknown, rechecking in %s", cfg.recheckInterval)
+		log.Infof("CI status is unknown, rechecking in %s", recheckInterval)
 	case github.CIStatusPending:
 	case github.CIStatusPassed:
 		return cli.Exit("CI successful", 0)
@@ -98,11 +98,11 @@ func handleCIStatus(status github.CIStatus) cli.ExitCoder {
 		return cli.Exit("CI failed", 1)
 	}
 
-	log.Infof("CI is not finished yet, rechecking in %s", cfg.recheckInterval)
+	log.Infof("CI is not finished yet, rechecking in %s", recheckInterval)
 	return nil
 }
 
-func checkCIStatus(c *cli.Context) error {
+func checkCIStatus(c *cli.Context, cfg *config, ciConf *ciConfig) error {
 	ctx := context.Background()
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, cfg.globalTimeout)
@@ -133,7 +133,7 @@ func checkCIStatus(c *cli.Context) error {
 			log.Infof("CI checks are not finished yet (still waiting for %s), rechecking in %s", strings.Join(interestingChecks, ", "), cfg.recheckInterval)
 		}
 
-		return handleCIStatus(status)
+		return handleCIStatus(status, cfg.recheckInterval)
 	}
 
 	checkAllCI := func() error {
@@ -142,7 +142,7 @@ func checkCIStatus(c *cli.Context) error {
 			return err
 		}
 
-		ret := handleCIStatus(status)
+		ret := handleCIStatus(status, cfg.recheckInterval)
 
 		if ret == nil {
 			log.Infof("CI checks are not finished yet, rechecking in %s", cfg.recheckInterval)
@@ -159,23 +159,32 @@ func checkCIStatus(c *cli.Context) error {
 	return utils.RunUntilCancelledOrTimeout(timeoutCtx, checkAllCI, cfg.recheckInterval)
 }
 
-var ciCommand = &cli.Command{
-	Name:      "ci",
-	Usage:     "Wait for CI to be finished",
-	ArgsUsage: "<https://github.com/OWNER/REPO/commit/HASH|owner> [<repo> <ref>]",
-	Before:    parseCIArguments,
-	Action:    checkCIStatus,
-	Flags: []cli.Flag{
-		&cli.StringSliceFlag{
-			Name: "check",
-			Aliases: []string{
-				"c",
-			},
-			Usage: "Check the status of a specific CI check. " +
-				"By default, the status of all checks is checked.",
-			EnvVars: []string{
-				"GITHUB_CI_CHECKS",
+func ciCommand(cfg *config) *cli.Command {
+	var ciConf ciConfig
+
+	return &cli.Command{
+		Name:      "ci",
+		Usage:     "Wait for CI to be finished",
+		ArgsUsage: "<https://github.com/OWNER/REPO/commit/HASH|owner> [<repo> <ref>]",
+		Before: func(c *cli.Context) error {
+			var err error
+			ciConf, err = parseCIArguments(c)
+
+			return err
+		},
+		Action: func(c *cli.Context) error { return checkCIStatus(c, cfg, &ciConf) },
+		Flags: []cli.Flag{
+			&cli.StringSliceFlag{
+				Name: "check",
+				Aliases: []string{
+					"c",
+				},
+				Usage: "Check the status of a specific CI check. " +
+					"By default, the status of all checks is checked.",
+				EnvVars: []string{
+					"GITHUB_CI_CHECKS",
+				},
 			},
 		},
-	},
+	}
 }

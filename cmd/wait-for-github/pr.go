@@ -39,10 +39,9 @@ type prConfig struct {
 var (
 	// https://regex101.com/r/nexaWT/1
 	pullRequestRegexp = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>\d+)/?.*`)
-	prConf            prConfig
 )
 
-func parsePRArguments(c *cli.Context) error {
+func parsePRArguments(c *cli.Context) (prConfig, error) {
 	var owner, repo, number string
 
 	switch {
@@ -51,7 +50,7 @@ func parsePRArguments(c *cli.Context) error {
 		url := c.Args().Get(0)
 		match := pullRequestRegexp.FindStringSubmatch(url)
 		if match == nil {
-			return fmt.Errorf("invalid pull request URL: %s", url)
+			return prConfig{}, fmt.Errorf("invalid pull request URL: %s", url)
 		}
 
 		owner = match[1]
@@ -72,21 +71,20 @@ func parsePRArguments(c *cli.Context) error {
 		cli.ShowCommandHelpAndExit(parent, "pr", 1)
 
 		// shouldn't get here, the previous line should exit
-		return nil
+		return prConfig{}, nil
 	}
-
-	prConf.owner = owner
-	prConf.repo = repo
 
 	n, err := strconv.Atoi(number)
 	if err != nil {
-		return fmt.Errorf("PR must be a number, got '%s'", c.Args().Get(2))
+		return prConfig{}, fmt.Errorf("PR must be a number, got '%s'", c.Args().Get(2))
 	}
-	prConf.pr = n
-
 	log.Infof("Waiting for PR %s/%s#%d to be merged/closed", owner, repo, n)
 
-	return nil
+	return prConfig{
+		owner: owner,
+		repo:  repo,
+		pr:    n,
+	}, nil
 }
 
 type commitInfo struct {
@@ -96,7 +94,7 @@ type commitInfo struct {
 	MergedAt int64  `json:"mergedAt"`
 }
 
-func checkPRMerged(c *cli.Context) error {
+func checkPRMerged(c *cli.Context, cfg *config, prConf *prConfig) error {
 	ctx := context.Background()
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, cfg.globalTimeout)
@@ -149,17 +147,26 @@ func checkPRMerged(c *cli.Context) error {
 	return utils.RunUntilCancelledOrTimeout(timeoutCtx, checkPRMergedOrClosed, cfg.recheckInterval)
 }
 
-var prCommand = &cli.Command{
-	Name:      "pr",
-	Usage:     "Wait for a PR to be merged",
-	ArgsUsage: "<https://github.com/OWNER/REPO/pulls/PR|owner> [<repo> <pr>]",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name: "commit-info-file",
-			Usage: "Path to a file which the commit info will be written. " +
-				"The file will be overwritten if it already exists.",
+func prCommand(cfg *config) *cli.Command {
+	var prConf prConfig
+
+	return &cli.Command{
+		Name:      "pr",
+		Usage:     "Wait for a PR to be merged",
+		ArgsUsage: "<https://github.com/OWNER/REPO/pulls/PR|owner> [<repo> <pr>]",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name: "commit-info-file",
+				Usage: "Path to a file which the commit info will be written. " +
+					"The file will be overwritten if it already exists.",
+			},
 		},
-	},
-	Before: parsePRArguments,
-	Action: checkPRMerged,
+		Before: func(c *cli.Context) error {
+			var err error
+			prConf, err = parsePRArguments(c)
+
+			return err
+		},
+		Action: func(c *cli.Context) error { return checkPRMerged(c, cfg, &prConf) },
+	}
 }

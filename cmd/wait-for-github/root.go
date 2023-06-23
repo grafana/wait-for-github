@@ -28,60 +28,76 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var root = &cli.App{
-	Name:  "wait-for-github",
-	Usage: "Wait for things to happen on GitHub",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:    "log-level",
-			Aliases: []string{"l"},
-			Usage:   fmt.Sprintf("Set the log level. Valid levels are: %s.", strings.Join(validLogLevels(), ", ")),
-			Value:   "info",
+type cmdFunc func(cfg *config) *cli.Command
+
+func root() *cli.App {
+	var cfg config
+
+	var commands []*cli.Command
+	for _, cf := range []cmdFunc{ciCommand, prCommand} {
+		commands = append(commands, cf(&cfg))
+	}
+
+	return &cli.App{
+		Name:  "wait-for-github",
+		Usage: "Wait for things to happen on GitHub",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "log-level",
+				Aliases: []string{"l"},
+				Usage:   fmt.Sprintf("Set the log level. Valid levels are: %s.", strings.Join(validLogLevels(), ", ")),
+				Value:   "info",
+			},
+			&cli.StringFlag{
+				Name:    "github-app-private-key-path",
+				Aliases: []string{"p"},
+				Usage:   "Path to the GitHub App private key",
+			},
+			&cli.StringFlag{
+				Name:    "github-app-private-key",
+				Usage:   "Contents of the GitHub App private key",
+				EnvVars: []string{"GITHUB_APP_PRIVATE_KEY"},
+			},
+			&cli.Int64Flag{
+				Name:    "github-app-id",
+				Usage:   "GitHub App ID",
+				EnvVars: []string{"GITHUB_APP_ID"},
+			},
+			&cli.Int64Flag{
+				Name:    "github-app-installation-id",
+				Usage:   "GitHub App installation ID",
+				EnvVars: []string{"GITHUB_APP_INSTALLATION_ID"},
+			},
+			&cli.StringFlag{
+				Name: "github-token",
+				Usage: "GitHub token. If not provided, the app will try to use the " +
+					"GitHub App authentication mechanism.",
+				EnvVars: []string{"GITHUB_TOKEN"},
+			},
+			&cli.DurationFlag{
+				Name:    "recheck-interval",
+				Usage:   "Interval after which to recheck GitHub.",
+				EnvVars: []string{"RECHECK_INTERVAL"},
+				Value:   time.Duration(30 * time.Second),
+			},
+			&cli.DurationFlag{
+				Name:    "timeout",
+				Usage:   "Timeout after which to stop checking GitHub.",
+				EnvVars: []string{"TIMEOUT"},
+				Value:   time.Duration(7 * 24 * time.Hour),
+			},
 		},
-		&cli.StringFlag{
-			Name:    "github-app-private-key-path",
-			Aliases: []string{"p"},
-			Usage:   "Path to the GitHub App private key",
+		Commands: commands,
+		Before: func(c *cli.Context) error {
+			var err error
+			cfg, err = handleGlobalConfig(c)
+			if err != nil {
+				return err
+			}
+
+			return nil
 		},
-		&cli.StringFlag{
-			Name:    "github-app-private-key",
-			Usage:   "Contents of the GitHub App private key",
-			EnvVars: []string{"GITHUB_APP_PRIVATE_KEY"},
-		},
-		&cli.Int64Flag{
-			Name:    "github-app-id",
-			Usage:   "GitHub App ID",
-			EnvVars: []string{"GITHUB_APP_ID"},
-		},
-		&cli.Int64Flag{
-			Name:    "github-app-installation-id",
-			Usage:   "GitHub App installation ID",
-			EnvVars: []string{"GITHUB_APP_INSTALLATION_ID"},
-		},
-		&cli.StringFlag{
-			Name: "github-token",
-			Usage: "GitHub token. If not provided, the app will try to use the " +
-				"GitHub App authentication mechanism.",
-			EnvVars: []string{"GITHUB_TOKEN"},
-		},
-		&cli.DurationFlag{
-			Name:    "recheck-interval",
-			Usage:   "Interval after which to recheck GitHub.",
-			EnvVars: []string{"RECHECK_INTERVAL"},
-			Value:   time.Duration(30 * time.Second),
-		},
-		&cli.DurationFlag{
-			Name:    "timeout",
-			Usage:   "Timeout after which to stop checking GitHub.",
-			EnvVars: []string{"TIMEOUT"},
-			Value:   time.Duration(7 * 24 * time.Hour),
-		},
-	},
-	Commands: []*cli.Command{
-		ciCommand,
-		prCommand,
-	},
-	Before: handleGlobalConfig,
+	}
 }
 
 func validLogLevels() []string {
@@ -92,7 +108,7 @@ func validLogLevels() []string {
 	return levels
 }
 
-func handleGlobalConfig(c *cli.Context) error {
+func handleGlobalConfig(c *cli.Context) (config, error) {
 	formatter := &log.TextFormatter{
 		FullTimestamp:   true,
 		TimestampFormat: "2006-01-02 15:04:05",
@@ -101,7 +117,7 @@ func handleGlobalConfig(c *cli.Context) error {
 
 	level := c.String("log-level")
 	if logLevel, err := log.ParseLevel(level); err != nil {
-		return fmt.Errorf("invalid log level: %s. valid levels are: %s", level, strings.Join(validLogLevels(), ", "))
+		return config{}, fmt.Errorf("invalid log level: %s. valid levels are: %s", level, strings.Join(validLogLevels(), ", "))
 	} else {
 		log.SetLevel(logLevel)
 	}
@@ -109,16 +125,18 @@ func handleGlobalConfig(c *cli.Context) error {
 	log.Debug("Debug logging enabled")
 	log.Trace("Trace logging enabled")
 
+	cfg := config{}
+
 	cfg.recheckInterval = c.Duration("recheck-interval")
 	cfg.globalTimeout = c.Duration("timeout")
 
 	token := c.String("github-token")
 	if token != "" {
-		log.Debug("Using GitHub token for authentication")
+		log.Debug("Will use GitHub token for authentication")
 		log.Debug("Using token starting with ", token[:10], "...")
 		cfg.AuthInfo.GithubToken = token
 
-		return nil
+		return cfg, nil
 	}
 
 	privateKey := []byte(c.String("github-app-private-key"))
@@ -128,7 +146,7 @@ func handleGlobalConfig(c *cli.Context) error {
 		var err error
 		privateKey, err = os.ReadFile(file)
 		if err != nil {
-			return fmt.Errorf("failed to read private key file: %w", err)
+			return config{}, fmt.Errorf("failed to read private key file: %w", err)
 		}
 	}
 
@@ -146,5 +164,5 @@ func handleGlobalConfig(c *cli.Context) error {
 		PrivateKey:     privateKey,
 	}
 
-	return nil
+	return cfg, nil
 }
