@@ -27,5 +27,3 @@ type config struct {
 	recheckInterval time.Duration
 	globalTimeout   time.Duration
 }
-
-var cfg config
