@@ -1,5 +1,5 @@
 // wait-for-github
-// Copyright (C) 2022, Grafana Labs
+// Copyright (C) 2022-2023, Grafana Labs
 
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License as published by the Free
@@ -102,6 +102,49 @@ func handleCIStatus(status github.CIStatus, recheckInterval time.Duration) cli.E
 	return nil
 }
 
+type checkSpecificCI struct {
+	githubClient github.GithubClient
+	owner        string
+	repo         string
+	ref          string
+	checks       []string
+}
+
+func (ci checkSpecificCI) Check(ctx context.Context, recheckInterval time.Duration) error {
+	var status github.CIStatus
+
+	status, interestingChecks, err := ci.githubClient.GetCIStatusForChecks(ctx, ci.owner, ci.repo, ci.ref, ci.checks)
+	if err != nil {
+		return err
+	}
+
+	if status == github.CIStatusFailed {
+		log.Infof("CI check %s failed, not waiting for other checks", strings.Join(interestingChecks, ", "))
+	}
+
+	// we didn't find any failed checks, and not all checks are finished, so
+	// we need to recheck
+	if status == github.CIStatusPending {
+		log.Infof("CI checks are not finished yet (still waiting for %s), rechecking in %s", strings.Join(interestingChecks, ", "), recheckInterval)
+	}
+
+	return handleCIStatus(status, recheckInterval)
+}
+
+type checkAllCI struct {
+	// same fields
+	checkSpecificCI
+}
+
+func (ci checkAllCI) Check(ctx context.Context, recheckInterval time.Duration) error {
+	status, err := ci.githubClient.GetCIStatus(ctx, ci.owner, ci.repo, ci.ref)
+	if err != nil {
+		return err
+	}
+
+	return handleCIStatus(status, recheckInterval)
+}
+
 func checkCIStatus(c *cli.Context, cfg *config, ciConf *ciConfig) error {
 	ctx := context.Background()
 
@@ -115,48 +158,22 @@ func checkCIStatus(c *cli.Context, cfg *config, ciConf *ciConfig) error {
 
 	log.Infof("Checking CI status on %s/%s@%s", ciConf.owner, ciConf.repo, ciConf.ref)
 
-	checkSpecificCI := func() error {
-		var status github.CIStatus
-
-		status, interestingChecks, err := githubClient.GetCIStatusForChecks(ctx, ciConf.owner, ciConf.repo, ciConf.ref, ciConf.checks)
-		if err != nil {
-			return err
-		}
-
-		if status == github.CIStatusFailed {
-			log.Infof("CI check %s failed, not waiting for other checks", strings.Join(interestingChecks, ", "))
-		}
-
-		// we didn't find any failed checks, and not all checks are finished, so
-		// we need to recheck
-		if status == github.CIStatusPending {
-			log.Infof("CI checks are not finished yet (still waiting for %s), rechecking in %s", strings.Join(interestingChecks, ", "), cfg.recheckInterval)
-		}
-
-		return handleCIStatus(status, cfg.recheckInterval)
+	specific := checkSpecificCI{
+		githubClient: githubClient,
+		owner:        ciConf.owner,
+		repo:         ciConf.repo,
+		ref:          ciConf.ref,
+		checks:       ciConf.checks,
 	}
-
-	checkAllCI := func() error {
-		status, err := githubClient.GetCIStatus(ctx, ciConf.owner, ciConf.repo, ciConf.ref)
-		if err != nil {
-			return err
-		}
-
-		ret := handleCIStatus(status, cfg.recheckInterval)
-
-		if ret == nil {
-			log.Infof("CI checks are not finished yet, rechecking in %s", cfg.recheckInterval)
-		}
-
-		return ret
-	}
+	// same fields, just different check behaviour
+	all := checkAllCI{specific}
 
 	if len(ciConf.checks) > 0 {
 		log.Infof("Checking CI status for checks: %s", strings.Join(ciConf.checks, ", "))
-		return utils.RunUntilCancelledOrTimeout(timeoutCtx, checkSpecificCI, cfg.recheckInterval)
+		return utils.RunUntilCancelledOrTimeout(timeoutCtx, specific, cfg.recheckInterval)
 	}
 
-	return utils.RunUntilCancelledOrTimeout(timeoutCtx, checkAllCI, cfg.recheckInterval)
+	return utils.RunUntilCancelledOrTimeout(timeoutCtx, all, cfg.recheckInterval)
 }
 
 func ciCommand(cfg *config) *cli.Command {

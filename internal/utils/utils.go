@@ -1,5 +1,5 @@
 // wait-for-github
-// Copyright (C) 2022, Grafana Labs
+// Copyright (C) 2022-2023, Grafana Labs
 
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License as published by the Free
@@ -28,7 +28,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func RunUntilCancelledOrTimeout(ctx context.Context, f func() error, interval time.Duration) error {
+type Check interface {
+	Check(ctx context.Context, recheckInterval time.Duration) error
+}
+
+func RunUntilCancelledOrTimeout(ctx context.Context, check Check, interval time.Duration) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -36,7 +40,7 @@ func RunUntilCancelledOrTimeout(ctx context.Context, f func() error, interval ti
 	signal.Notify(signalChan, syscall.SIGINT)
 
 	for {
-		err := f()
+		err := check.Check(ctx, interval)
 		if err != nil {
 			return err
 		}

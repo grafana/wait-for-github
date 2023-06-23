@@ -1,5 +1,5 @@
 // wait-for-github
-// Copyright (C) 2022, Grafana Labs
+// Copyright (C) 2022-2023, Grafana Labs
 
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License as published by the Free
@@ -23,6 +23,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/utils"
@@ -94,6 +95,53 @@ type commitInfo struct {
 	MergedAt int64  `json:"mergedAt"`
 }
 
+type prCheck struct {
+	githubClient github.GithubClient
+
+	owner string
+	repo  string
+	pr    int
+
+	commitInfoFile string
+}
+
+func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) error {
+	mergedCommit, closed, mergedAt, err := pr.githubClient.IsPRMergedOrClosed(ctx, pr.owner, pr.repo, pr.pr)
+	if err != nil {
+		return err
+	}
+
+	if mergedCommit != "" {
+		log.Info("PR is merged, exiting")
+		if pr.commitInfoFile != "" {
+			commit := commitInfo{
+				Owner:    pr.owner,
+				Repo:     pr.repo,
+				Commit:   mergedCommit,
+				MergedAt: mergedAt,
+			}
+
+			jsonCommit, err := json.MarshalIndent(commit, "", "  ")
+			if err != nil {
+				return fmt.Errorf("failed to marshal commit info to json: %w", err)
+			}
+
+			log.Debugf("Writing commit info to file %s", pr.commitInfoFile)
+			if err := os.WriteFile(pr.commitInfoFile, jsonCommit, 0644); err != nil {
+				return fmt.Errorf("failed to write commit info to file: %w", err)
+			}
+		}
+		return cli.Exit("PR is merged", 0)
+	}
+
+	if closed {
+		return cli.Exit("PR is closed", 1)
+	}
+
+	log.Infof("PR is not closed yet, rechecking in %s", recheckInterval)
+	return nil
+}
+
 func checkPRMerged(c *cli.Context, cfg *config, prConf *prConfig) error {
 	ctx := context.Background()
 
@@ -107,41 +155,12 @@ func checkPRMerged(c *cli.Context, cfg *config, prConf *prConfig) error {
 
 	commitInfoFile := c.String("commit-info-file")
 
-	checkPRMergedOrClosed := func() error {
-		mergedCommit, closed, mergedAt, err := githubClient.IsPRMergedOrClosed(ctx, prConf.owner, prConf.repo, prConf.pr)
-		if err != nil {
-			return err
-		}
-
-		if mergedCommit != "" {
-			log.Info("PR is merged, exiting")
-			if commitInfoFile != "" {
-				commit := commitInfo{
-					Owner:    prConf.owner,
-					Repo:     prConf.repo,
-					Commit:   mergedCommit,
-					MergedAt: mergedAt,
-				}
-
-				jsonCommit, err := json.MarshalIndent(commit, "", "  ")
-				if err != nil {
-					return fmt.Errorf("failed to marshal commit info to json: %w", err)
-				}
-
-				log.Debugf("Writing commit info to file %s", commitInfoFile)
-				if err := os.WriteFile(commitInfoFile, jsonCommit, 0644); err != nil {
-					return fmt.Errorf("failed to write commit info to file: %w", err)
-				}
-			}
-			return cli.Exit("PR is merged", 0)
-		}
-
-		if closed {
-			log.Info("PR is closed, exiting")
-			return cli.Exit("PR is closed without being merged", 1)
-		}
-		log.Infof("PR is not closed yet, rechecking in %s", cfg.recheckInterval)
-		return nil
+	checkPRMergedOrClosed := prCheck{
+		githubClient:   githubClient,
+		owner:          prConf.owner,
+		repo:           prConf.repo,
+		pr:             prConf.pr,
+		commitInfoFile: commitInfoFile,
 	}
 
 	return utils.RunUntilCancelledOrTimeout(timeoutCtx, checkPRMergedOrClosed, cfg.recheckInterval)
