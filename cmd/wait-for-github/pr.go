@@ -35,6 +35,8 @@ type prConfig struct {
 	owner string
 	repo  string
 	pr    int
+
+	commitInfoFile string
 }
 
 var (
@@ -82,9 +84,10 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 	log.Infof("Waiting for PR %s/%s#%d to be merged/closed", owner, repo, n)
 
 	return prConfig{
-		owner: owner,
-		repo:  repo,
-		pr:    n,
+		owner:          owner,
+		repo:           repo,
+		pr:             n,
+		commitInfoFile: c.String("commit-info-file"),
 	}, nil
 }
 
@@ -96,13 +99,9 @@ type commitInfo struct {
 }
 
 type prCheck struct {
+	prConfig
+
 	githubClient github.GithubClient
-
-	owner string
-	repo  string
-	pr    int
-
-	commitInfoFile string
 }
 
 func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) error {
@@ -142,25 +141,15 @@ func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) erro
 	return nil
 }
 
-func checkPRMerged(c *cli.Context, cfg *config, prConf *prConfig) error {
-	ctx := context.Background()
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, cfg.globalTimeout)
-	defer cancel()
-
-	githubClient, err := github.NewGithubClient(ctx, cfg.AuthInfo)
+func checkPRMerged(timeoutCtx context.Context, cfg *config, prConf *prConfig) error {
+	githubClient, err := github.NewGithubClient(timeoutCtx, cfg.AuthInfo)
 	if err != nil {
 		return err
 	}
 
-	commitInfoFile := c.String("commit-info-file")
-
 	checkPRMergedOrClosed := prCheck{
-		githubClient:   githubClient,
-		owner:          prConf.owner,
-		repo:           prConf.repo,
-		pr:             prConf.pr,
-		commitInfoFile: commitInfoFile,
+		githubClient: githubClient,
+		prConfig:     *prConf,
 	}
 
 	return utils.RunUntilCancelledOrTimeout(timeoutCtx, checkPRMergedOrClosed, cfg.recheckInterval)
@@ -186,6 +175,6 @@ func prCommand(cfg *config) *cli.Command {
 
 			return err
 		},
-		Action: func(c *cli.Context) error { return checkPRMerged(c, cfg, &prConf) },
+		Action: func(c *cli.Context) error { return checkPRMerged(c.Context, cfg, &prConf) },
 	}
 }
