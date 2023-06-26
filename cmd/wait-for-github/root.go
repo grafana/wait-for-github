@@ -17,6 +17,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -33,9 +34,19 @@ type cmdFunc func(cfg *config) *cli.Command
 func root() *cli.App {
 	var cfg config
 
+	// give a timeout context to all commands
 	var commands []*cli.Command
 	for _, cf := range []cmdFunc{ciCommand, prCommand} {
-		commands = append(commands, cf(&cfg))
+		cmd := cf(&cfg)
+		action := cmd.Action
+		cmd.Action = func(c *cli.Context) error {
+			timeoutCtx, cancel := context.WithTimeout(c.Context, cfg.globalTimeout)
+			defer cancel()
+			c.Context = timeoutCtx
+
+			return action(c)
+		}
+		commands = append(commands, cmd)
 	}
 
 	return &cli.App{
@@ -91,11 +102,7 @@ func root() *cli.App {
 		Before: func(c *cli.Context) error {
 			var err error
 			cfg, err = handleGlobalConfig(c)
-			if err != nil {
-				return err
-			}
-
-			return nil
+			return err
 		},
 	}
 }

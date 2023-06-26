@@ -77,8 +77,6 @@ func parseCIArguments(c *cli.Context) (ciConfig, error) {
 		return ciConfig{}, nil
 	}
 
-	log.Debugf("Will wait for CI on %s/%s@%s", owner, repo, ref)
-
 	return ciConfig{
 		owner:  owner,
 		repo:   repo,
@@ -145,13 +143,8 @@ func (ci checkAllCI) Check(ctx context.Context, recheckInterval time.Duration) e
 	return handleCIStatus(status, recheckInterval)
 }
 
-func checkCIStatus(c *cli.Context, cfg *config, ciConf *ciConfig) error {
-	ctx := context.Background()
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, cfg.globalTimeout)
-	defer cancel()
-
-	githubClient, err := github.NewGithubClient(ctx, cfg.AuthInfo)
+func checkCIStatus(timeoutCtx context.Context, cfg *config, ciConf *ciConfig) error {
+	githubClient, err := github.NewGithubClient(timeoutCtx, cfg.AuthInfo)
 	if err != nil {
 		return err
 	}
@@ -189,7 +182,7 @@ func ciCommand(cfg *config) *cli.Command {
 
 			return err
 		},
-		Action: func(c *cli.Context) error { return checkCIStatus(c, cfg, &ciConf) },
+		Action: func(c *cli.Context) error { return checkCIStatus(c.Context, cfg, &ciConf) },
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name: "check",
