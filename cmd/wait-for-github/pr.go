@@ -101,7 +101,7 @@ type commitInfo struct {
 type prCheck struct {
 	prConfig
 
-	githubClient github.GithubClient
+	githubClient github.CheckPRMerged
 }
 
 func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) error {

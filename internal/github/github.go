@@ -30,8 +30,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type GithubClient interface {
+type CheckPRMerged interface {
 	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error)
+}
+
+type CheckCIStatus interface {
 	GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (CIStatus, error)
 	GetCIStatusForChecks(ctx context.Context, owner, repo string, commitHash string, checkNames []string) (CIStatus, []string, error)
 }
@@ -48,7 +51,7 @@ type GHClient struct {
 	client *github.Client
 }
 
-func NewGithubClient(ctx context.Context, authInfo AuthInfo) (GithubClient, error) {
+func NewGithubClient(ctx context.Context, authInfo AuthInfo) (GHClient, error) {
 	// If a GitHub token is provided, use it to authenticate in preference to
 	// App authentication
 	if authInfo.GithubToken != "" {
@@ -72,7 +75,7 @@ func cachingRetryableTransport() http.RoundTripper {
 }
 
 // AuthenticateWithToken authenticates with a GitHub token
-func AuthenticateWithToken(ctx context.Context, token string) GithubClient {
+func AuthenticateWithToken(ctx context.Context, token string) GHClient {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
@@ -80,22 +83,22 @@ func AuthenticateWithToken(ctx context.Context, token string) GithubClient {
 	httpClient := oauth2.NewClient(ctx, src)
 	githubClient := github.NewClient(httpClient)
 
-	return &GHClient{client: githubClient}
+	return GHClient{client: githubClient}
 }
 
 // AuthenticateWithApp authenticates with a GitHub App
-func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installationID int64) (GithubClient, error) {
+func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installationID int64) (GHClient, error) {
 	itr, err := ghinstallation.New(cachingRetryableTransport(), appID, installationID, privateKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create transport: %w", err)
+		return GHClient{}, fmt.Errorf("failed to create transport: %w", err)
 	}
 
 	githubClient := github.NewClient(&http.Client{Transport: itr})
 
-	return &GHClient{client: githubClient}, nil
+	return GHClient{client: githubClient}, nil
 }
 
-func (c *GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, int64, error) {
+func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, int64, error) {
 	pr, _, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
 	if err != nil {
 		return "", false, -1, fmt.Errorf("failed to query GitHub: %w", err)
@@ -123,7 +126,22 @@ const (
 	CIStatusUnknown
 )
 
-func (c *GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref string) (CIStatus, error) {
+func (c CIStatus) String() string {
+	switch c {
+	case CIStatusPassed:
+		return "passed"
+	case CIStatusFailed:
+		return "failed"
+	case CIStatusPending:
+		return "pending"
+	case CIStatusUnknown:
+		return "unknown"
+	default:
+		return "unknown"
+	}
+}
+
+func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref string) (CIStatus, error) {
 	opt := &github.ListOptions{
 		PerPage: 100,
 	}
@@ -145,7 +163,7 @@ func (c *GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref 
 	return CIStatusUnknown, nil
 }
 
-func (c *GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check string) (CIStatus, error) {
+func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check string) (CIStatus, error) {
 	listOptions := github.ListOptions{
 		PerPage: 100,
 	}
@@ -213,7 +231,7 @@ func (c *GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check
 
 // GetCIStatusForCheck returns the CI status for a specific commit. It looks at
 // both 'checks' and 'statuses'.
-func (c *GHClient) GetCIStatusForChecks(ctx context.Context, owner, repoName string, ref string, checkNames []string) (CIStatus, []string, error) {
+func (c GHClient) GetCIStatusForChecks(ctx context.Context, owner, repoName string, ref string, checkNames []string) (CIStatus, []string, error) {
 	allFinished := true
 	awaitedChecks := make(map[string]bool, len(checkNames))
 	var status CIStatus

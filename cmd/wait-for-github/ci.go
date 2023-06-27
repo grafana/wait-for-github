@@ -101,7 +101,7 @@ func handleCIStatus(status github.CIStatus, recheckInterval time.Duration) cli.E
 }
 
 type checkAllCI struct {
-	githubClient github.GithubClient
+	githubClient github.CheckCIStatus
 	owner        string
 	repo         string
 	ref          string
