@@ -44,6 +44,14 @@ var (
 	commitRegexp = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/commit/(?P<commit>[abcdef\d]+)/?.*`)
 )
 
+type ErrInvalidCommitURL struct {
+	url string
+}
+
+func (e ErrInvalidCommitURL) Error() string {
+	return fmt.Sprintf("invalid commit URL: %s", e.url)
+}
+
 func parseCIArguments(c *cli.Context) (ciConfig, error) {
 	var owner, repo, ref string
 
@@ -53,7 +61,7 @@ func parseCIArguments(c *cli.Context) (ciConfig, error) {
 		url := c.Args().Get(0)
 		match := commitRegexp.FindStringSubmatch(url)
 		if match == nil {
-			return ciConfig{}, fmt.Errorf("invalid commit URL: %s", url)
+			return ciConfig{}, ErrInvalidCommitURL{url}
 		}
 
 		owner = match[1]
@@ -71,10 +79,12 @@ func parseCIArguments(c *cli.Context) (ciConfig, error) {
 		// but it doesn't work, says "unknown command ci". So we go through the parent command.
 		lineage := c.Lineage()
 		parent := lineage[1]
-		cli.ShowCommandHelpAndExit(parent, "ci", 1)
+		err := cli.ShowCommandHelp(parent, "ci")
+		if err != nil {
+			return ciConfig{}, err
+		}
 
-		// shouldn't get here, the previous line should exit
-		return ciConfig{}, nil
+		return ciConfig{}, cli.Exit("invalid number of arguments", 1)
 	}
 
 	return ciConfig{
@@ -143,12 +153,7 @@ func (ci checkSpecificCI) Check(ctx context.Context, recheckInterval time.Durati
 	return handleCIStatus(status, recheckInterval)
 }
 
-func checkCIStatus(timeoutCtx context.Context, cfg *config, ciConf *ciConfig) error {
-	githubClient, err := github.NewGithubClient(timeoutCtx, cfg.AuthInfo)
-	if err != nil {
-		return err
-	}
-
+func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus, cfg *config, ciConf *ciConfig) error {
 	log.Infof("Checking CI status on %s/%s@%s", ciConf.owner, ciConf.repo, ciConf.ref)
 
 	all := checkAllCI{
@@ -184,7 +189,14 @@ func ciCommand(cfg *config) *cli.Command {
 
 			return err
 		},
-		Action: func(c *cli.Context) error { return checkCIStatus(c.Context, cfg, &ciConf) },
+		Action: func(c *cli.Context) error {
+			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo)
+			if err != nil {
+				return err
+			}
+
+			return checkCIStatus(c.Context, githubClient, cfg, &ciConf)
+		},
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
 				Name: "check",
