@@ -111,7 +111,7 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 		repo:           repo,
 		pr:             n,
 		commitInfoFile: c.String("commit-info-file"),
-		writer: 	   osFileWriter{},
+		writer:         osFileWriter{},
 	}, nil
 }
 
@@ -122,10 +122,16 @@ type commitInfo struct {
 	MergedAt int64  `json:"mergedAt"`
 }
 
+type checkMergedAndOverallCI interface {
+	github.CheckPRMerged
+	github.GetPRHeadSHA
+	github.CheckOverallCIStatus
+}
+
 type prCheck struct {
 	prConfig
 
-	githubClient github.CheckPRMerged
+	githubClient checkMergedAndOverallCI
 }
 
 func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) error {
@@ -161,11 +167,28 @@ func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) erro
 		return cli.Exit("PR is closed", 1)
 	}
 
+	// not merged, not closed, let's see what the CI status is. If that's bad,
+	// we can exit early.
+	sha, err := pr.githubClient.GetPRHeadSHA(ctx, pr.owner, pr.repo, pr.pr)
+	if err != nil {
+		return err
+	}
+
+	status, err := pr.githubClient.GetCIStatus(ctx, pr.owner, pr.repo, sha)
+	if err != nil {
+		return err
+	}
+
+	if status == github.CIStatusFailed {
+		log.Info("CI failed, exiting")
+		return cli.Exit("CI failed", 1)
+	}
+
 	log.Infof("PR is not closed yet, rechecking in %s", recheckInterval)
 	return nil
 }
 
-func checkPRMerged(timeoutCtx context.Context, githubClient github.CheckPRMerged, cfg *config, prConf *prConfig) error {
+func checkPRMerged(timeoutCtx context.Context, githubClient checkMergedAndOverallCI, cfg *config, prConf *prConfig) error {
 	checkPRMergedOrClosed := prCheck{
 		githubClient: githubClient,
 		prConfig:     *prConf,

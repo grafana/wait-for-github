@@ -34,9 +34,21 @@ type CheckPRMerged interface {
 	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error)
 }
 
-type CheckCIStatus interface {
+type GetPRHeadSHA interface {
+	GetPRHeadSHA(ctx context.Context, owner, repo string, pr int) (string, error)
+}
+
+type CheckOverallCIStatus interface {
 	GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (CIStatus, error)
+}
+
+type CheckCIStatusForChecks interface {
 	GetCIStatusForChecks(ctx context.Context, owner, repo string, commitHash string, checkNames []string) (CIStatus, []string, error)
+}
+
+type CheckCIStatus interface {
+	CheckOverallCIStatus
+	CheckCIStatusForChecks
 }
 
 type AuthInfo struct {
@@ -115,6 +127,15 @@ func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr
 	}
 
 	return sha, pr.GetState() == "closed", mergedAt, nil
+}
+
+func (c GHClient) GetPRHeadSHA(ctx context.Context, owner, repo string, prNumber int) (string, error) {
+	pr, _, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
+	if err != nil {
+		return "", fmt.Errorf("failed to query GitHub for PR HEAD SHA: %w", err)
+	}
+
+	return pr.GetHead().GetSHA(), nil
 }
 
 type CIStatus uint
