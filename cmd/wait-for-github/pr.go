@@ -31,18 +31,39 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// for testing. We could use `io.Writer`, but then we have to handle opening and
+// closing the file.
+type fileWriter interface {
+	WriteFile(filename string, data []byte, perm os.FileMode) error
+}
+
+type osFileWriter struct{}
+
+func (f osFileWriter) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return os.WriteFile(filename, data, perm)
+}
+
 type prConfig struct {
 	owner string
 	repo  string
 	pr    int
 
 	commitInfoFile string
+	writer         fileWriter
 }
 
 var (
 	// https://regex101.com/r/nexaWT/1
 	pullRequestRegexp = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<number>\d+)/?.*`)
 )
+
+type ErrInvalidPRURL struct {
+	url string
+}
+
+func (e ErrInvalidPRURL) Error() string {
+	return fmt.Sprintf("invalid pull request URL: %s", e.url)
+}
 
 func parsePRArguments(c *cli.Context) (prConfig, error) {
 	var owner, repo, number string
@@ -53,7 +74,7 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 		url := c.Args().Get(0)
 		match := pullRequestRegexp.FindStringSubmatch(url)
 		if match == nil {
-			return prConfig{}, fmt.Errorf("invalid pull request URL: %s", url)
+			return prConfig{}, ErrInvalidPRURL{url}
 		}
 
 		owner = match[1]
@@ -71,10 +92,12 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 		// but it doesn't work, says "unknown command pr". So we go through the parent command.
 		lineage := c.Lineage()
 		parent := lineage[1]
-		cli.ShowCommandHelpAndExit(parent, "pr", 1)
+		err := cli.ShowCommandHelp(parent, "pr")
+		if err != nil {
+			return prConfig{}, err
+		}
 
-		// shouldn't get here, the previous line should exit
-		return prConfig{}, nil
+		return prConfig{}, cli.Exit("invalid number of arguments", 1)
 	}
 
 	n, err := strconv.Atoi(number)
@@ -88,6 +111,7 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 		repo:           repo,
 		pr:             n,
 		commitInfoFile: c.String("commit-info-file"),
+		writer: 	   osFileWriter{},
 	}, nil
 }
 
@@ -126,7 +150,7 @@ func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) erro
 			}
 
 			log.Debugf("Writing commit info to file %s", pr.commitInfoFile)
-			if err := os.WriteFile(pr.commitInfoFile, jsonCommit, 0644); err != nil {
+			if err := pr.writer.WriteFile(pr.commitInfoFile, jsonCommit, 0644); err != nil {
 				return fmt.Errorf("failed to write commit info to file: %w", err)
 			}
 		}
@@ -141,12 +165,7 @@ func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) erro
 	return nil
 }
 
-func checkPRMerged(timeoutCtx context.Context, cfg *config, prConf *prConfig) error {
-	githubClient, err := github.NewGithubClient(timeoutCtx, cfg.AuthInfo)
-	if err != nil {
-		return err
-	}
-
+func checkPRMerged(timeoutCtx context.Context, githubClient github.CheckPRMerged, cfg *config, prConf *prConfig) error {
 	checkPRMergedOrClosed := prCheck{
 		githubClient: githubClient,
 		prConfig:     *prConf,
@@ -175,6 +194,12 @@ func prCommand(cfg *config) *cli.Command {
 
 			return err
 		},
-		Action: func(c *cli.Context) error { return checkPRMerged(c.Context, cfg, &prConf) },
+		Action: func(c *cli.Context) error {
+			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo)
+			if err != nil {
+				return err
+			}
+			return checkPRMerged(c.Context, githubClient, cfg, &prConf)
+		},
 	}
 }
