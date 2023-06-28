@@ -41,11 +41,6 @@ func (c *FakeCIStatusChecker) GetCIStatusForChecks(ctx context.Context, owner, r
 	return c.status, checkNames, c.err
 }
 
-var (
-	zero = 0
-	one  = 1
-)
-
 func TestHandleCIStatus(t *testing.T) {
 	t.Parallel()
 
