@@ -644,3 +644,35 @@ func TestGetCIStatusForChecks_ErrorListStatuses(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "failed to query GitHub")
 }
+
+func TestGetPRHeadSHA(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetReposPullsByOwnerByRepoByPullNumber,
+			github.PullRequest{
+				Head: &github.PullRequestBranch{
+					SHA: github.String("abcdef12345"),
+				},
+			},
+		),
+	)
+
+	ghClient := newClientFromMock(t, mockedHTTPClient)
+
+	sha, err := ghClient.GetPRHeadSHA(ctx, "owner", "repo", 1)
+	require.NoError(t, err)
+	require.Equal(t, "abcdef12345", sha)
+}
+
+func TestGetPRHeadSHA_Error(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	ghClient := newErrorReturningClient(t)
+	_, err := ghClient.GetPRHeadSHA(ctx, "owner", "repo", 1)
+	require.Error(t, err)
+}

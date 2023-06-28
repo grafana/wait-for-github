@@ -24,20 +24,34 @@ import (
 	"io/fs"
 	"testing"
 
+	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v2"
 )
 
-// FakeGithubClientPRCheck implements CheckPRMerged
-type FakeGithubClientPRCheck struct {
+// fakeGithubClientPRCheck implements the checkMergedAndOverallCI interface
+type fakeGithubClientPRCheck struct {
 	MergedCommit string
 	Closed       bool
 	MergedAt     int64
-	Error        error
+
+	isPRMergedError   error
+	getPRHeadSHAError error
+	getCIStatusError  error
+
+	CIStatus github.CIStatus
 }
 
-func (fg *FakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
-	return fg.MergedCommit, fg.Closed, fg.MergedAt, fg.Error
+func (fg *fakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
+	return fg.MergedCommit, fg.Closed, fg.MergedAt, fg.isPRMergedError
+}
+
+func (fg *fakeGithubClientPRCheck) GetPRHeadSHA(ctx context.Context, owner, repo string, pr int) (string, error) {
+	return fg.MergedCommit, fg.getPRHeadSHAError
+}
+
+func (fg *fakeGithubClientPRCheck) GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (github.CIStatus, error) {
+	return fg.CIStatus, fg.getCIStatusError
 }
 
 func TestPRCheck(t *testing.T) {
@@ -45,13 +59,12 @@ func TestPRCheck(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		fakeClient       FakeGithubClientPRCheck
-		err              error
+		fakeClient       fakeGithubClientPRCheck
 		expectedExitCode *int
 	}{
 		{
 			name: "PR is merged",
-			fakeClient: FakeGithubClientPRCheck{
+			fakeClient: fakeGithubClientPRCheck{
 				MergedCommit: "abc123",
 				MergedAt:     1234567890,
 			},
@@ -59,25 +72,42 @@ func TestPRCheck(t *testing.T) {
 		},
 		{
 			name: "PR is closed",
-			fakeClient: FakeGithubClientPRCheck{
+			fakeClient: fakeGithubClientPRCheck{
 				Closed: true,
 			},
 			expectedExitCode: &one,
 		},
 		{
 			name: "PR is open",
-			fakeClient: FakeGithubClientPRCheck{
-				MergedCommit: "",
-				Closed:       false,
+			fakeClient: fakeGithubClientPRCheck{
+				Closed: false,
 			},
 			expectedExitCode: &one,
 		},
 		{
 			name: "Error from IsPRMergedOrClosed",
-			fakeClient: FakeGithubClientPRCheck{
-				Error: fmt.Errorf("an error occurred"),
+			fakeClient: fakeGithubClientPRCheck{
+				isPRMergedError: fmt.Errorf("an error occurred"),
 			},
-			err: nil,
+		},
+		{
+			name: "Not merged, but CI failed",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus: github.CIStatusFailed,
+			},
+			expectedExitCode: &one,
+		},
+		{
+			name: "Not merged, getting PR head SHA failed",
+			fakeClient: fakeGithubClientPRCheck{
+				getPRHeadSHAError: fmt.Errorf("an error occurred"),
+			},
+		},
+		{
+			name: "Not merged, getting CI status failed",
+			fakeClient: fakeGithubClientPRCheck{
+				getCIStatusError: fmt.Errorf("an error occurred"),
+			},
 		},
 	}
 
@@ -103,7 +133,7 @@ func TestPRCheck(t *testing.T) {
 				require.ErrorAs(t, err, &exitErr)
 				require.Equal(t, *tt.expectedExitCode, exitErr.ExitCode())
 			} else if err != nil {
-				require.ErrorAs(t, err, &tt.err)
+				require.NotNil(t, err)
 			}
 		})
 	}
@@ -138,7 +168,7 @@ func TestWriteCommitInfoFile(t *testing.T) {
 	prCheck := &prCheck{
 		prConfig: prConfig,
 
-		githubClient: &FakeGithubClientPRCheck{
+		githubClient: &fakeGithubClientPRCheck{
 			MergedCommit: "abc123",
 			MergedAt:     1234567890,
 		},
@@ -182,7 +212,7 @@ func TestWriteCommitInfoFileError(t *testing.T) {
 	prCheck := &prCheck{
 		prConfig: prConfig,
 
-		githubClient: &FakeGithubClientPRCheck{
+		githubClient: &fakeGithubClientPRCheck{
 			MergedCommit: "abc123",
 			MergedAt:     1234567890,
 		},
