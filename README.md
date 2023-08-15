@@ -88,6 +88,10 @@ been merged.
 - `"ci"`: Waits for the CI to finish. 
 - `"pr"`: Waits for the PR to be merged.
 
+#### `app-id`, `app-private-key`, `app-installation-id`
+
+The GitHub Application ID, App Private Key and App Installation ID. Optional.
+Use in a case of the authentication with a GitHub App (as an alternative to GitHub Token auth).
 
 #### `checks-to-wait-for`
 

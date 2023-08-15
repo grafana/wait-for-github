@@ -5,6 +5,15 @@ inputs:
     description: 'GitHub token'
     required: false
     default: ${{ github.token }}
+  app-id:
+    description: 'GitHub App ID'
+    required: false
+  app-installation-id:
+    description: 'GitHub App installation ID'
+    required: false
+  app-private-key:
+    description: 'GitHub App private key'
+    required: false
   timeout:
     description: 'Timeout in golang duration format'
     required: false
@@ -36,6 +45,9 @@ runs:
   env:
     GITHUB_TOKEN: ${{ inputs.token }}
     GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
+    GITHUB_APP_ID: ${{ inputs.app-id }}
+    GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
+    GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
   args:
     - --log-level
     - debug
