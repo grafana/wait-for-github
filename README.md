@@ -2,7 +2,7 @@
 
 This is a small program that can wait for things to happen on GitHub.
 
-It's Monday!
+It's Monday!!
 
 ## Usage
 
