@@ -2,6 +2,8 @@
 
 This is a small program that can wait for things to happen on GitHub.
 
+Today is monday!
+
 ## Usage
 
 ```
