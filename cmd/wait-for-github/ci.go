@@ -42,31 +42,62 @@ type ciConfig struct {
 var (
 	// https://regex101.com/r/dqMmDP/1
 	commitRegexp = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/commit/(?P<commit>[abcdef\d]+)/?.*`)
+	prRegexp     = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<prnumber>[\d]+)/?.*`)
 )
 
-type ErrInvalidCommitURL struct {
+type ErrInvalidURL struct {
 	url string
 }
 
-func (e ErrInvalidCommitURL) Error() string {
-	return fmt.Sprintf("invalid commit URL: %s", e.url)
+func (e ErrInvalidURL) Error() string {
+	return fmt.Sprintf("invalid URL to either PR or commit: %s", e.url)
+}
+
+func extractRefFromPrURL(url string) (owner, repo, ref string) {
+	match := prRegexp.FindStringSubmatch(url)
+	if match == nil {
+		return
+	}
+
+	owner = match[1]
+	repo = match[2]
+	prNumber := match[3]
+	// Construct Ref with PR number
+	ref = fmt.Sprintf("refs/pull/%s/head", prNumber)
+	return
+}
+
+func extractRefFromCommitURL(url string) (owner, repo, ref string) {
+	match := commitRegexp.FindStringSubmatch(url)
+	if match == nil {
+		return
+	}
+
+	owner = match[1]
+	repo = match[2]
+	ref = match[3]
+	return
 }
 
 func parseCIArguments(c *cli.Context) (ciConfig, error) {
 	var owner, repo, ref string
 
 	switch {
-	// If a single argument is provided, it is expected to be a commit URL
+	// If a single argument is provided, it is expected to be either a commit URL or PR URL
 	case c.NArg() == 1:
 		url := c.Args().Get(0)
-		match := commitRegexp.FindStringSubmatch(url)
-		if match == nil {
-			return ciConfig{}, ErrInvalidCommitURL{url}
+		// Try for a PR URL
+		owner, repo, ref = extractRefFromPrURL(url)
+		if len(ref) == 0 {
+			// Try for a commit URL
+			owner, repo, ref = extractRefFromCommitURL(url)
 		}
 
-		owner = match[1]
-		repo = match[2]
-		ref = match[3]
+		// Neither URL parsed
+		if len(ref) == 0 {
+			return ciConfig{}, ErrInvalidURL{url}
+		}
+
 	// If three arguments are provided, they are expected to be owner, repo, and ref
 	case c.NArg() == 3:
 		owner = c.Args().Get(0)
@@ -182,7 +213,7 @@ func ciCommand(cfg *config) *cli.Command {
 	return &cli.Command{
 		Name:      "ci",
 		Usage:     "Wait for CI to be finished",
-		ArgsUsage: "<https://github.com/OWNER/REPO/commit/HASH|owner> [<repo> <ref>]",
+		ArgsUsage: "<https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]",
 		Before: func(c *cli.Context) error {
 			var err error
 			ciConf, err = parseCIArguments(c)
