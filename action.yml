@@ -56,6 +56,6 @@ runs:
     - --recheck-interval
     - ${{ inputs.interval }}
     - ${{ inputs.wait-for }}
-    - ${{ inputs.owner}}
+    - ${{ inputs.owner }}
     - ${{ inputs.repo }}
     - ${{ inputs.ref }}

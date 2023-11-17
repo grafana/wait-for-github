@@ -109,12 +109,12 @@ Default is `30s`.
 #### `owner`
 
 GitHub repo owner. Optional. Default is the current repository's owner,
-`${{ github.repository_owner }}`. Ignored when a URL is used for `ref`.
+`${{ github.repository_owner }}`.
 
 #### `repo`
 
 GitHub repo name. Optional. Default is the current repository, 
-`${{ github.event.repository.name }}`. Ignored when a URL is used for `ref`.
+`${{ github.event.repository.name }}`.
 
 #### `token`
 

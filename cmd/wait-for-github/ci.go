@@ -42,7 +42,6 @@ type ciConfig struct {
 var (
 	// https://regex101.com/r/dqMmDP/1
 	commitRegexp = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/commit/(?P<commit>[abcdef\d]+)/?.*`)
-	prRegexp     = regexp.MustCompile(`.*github\.com/(?P<owner>[^/]+)/(?P<repo>[^/]+)/pull/(?P<prnumber>[\d]+)/?.*`)
 )
 
 type ErrInvalidURL struct {
@@ -51,20 +50,6 @@ type ErrInvalidURL struct {
 
 func (e ErrInvalidURL) Error() string {
 	return fmt.Sprintf("invalid URL to either PR or commit: %s", e.url)
-}
-
-func extractRefFromPrURL(url string) (owner, repo, ref string) {
-	match := prRegexp.FindStringSubmatch(url)
-	if match == nil {
-		return
-	}
-
-	owner = match[1]
-	repo = match[2]
-	prNumber := match[3]
-	// Construct Ref with PR number
-	ref = fmt.Sprintf("refs/pull/%s/head", prNumber)
-	return
 }
 
 func extractRefFromCommitURL(url string) (owner, repo, ref string) {
@@ -77,6 +62,16 @@ func extractRefFromCommitURL(url string) (owner, repo, ref string) {
 	repo = match[2]
 	ref = match[3]
 	return
+}
+
+func extractRefFromPrURL(url string) (owner, repo, ref string) {
+	owner, repo, number := extractNumberFromPrURL(url)
+	if number == "" {
+		return owner, repo, ref
+	}
+	// Construct Ref with PR number
+	ref = fmt.Sprintf("refs/pull/%s/head", number)
+	return owner, repo, ref
 }
 
 func parseCIArguments(c *cli.Context) (ciConfig, error) {
