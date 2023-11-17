@@ -65,6 +65,18 @@ func (e ErrInvalidPRURL) Error() string {
 	return fmt.Sprintf("invalid pull request URL: %s", e.url)
 }
 
+func extractNumberFromPrURL(url string) (owner, repo, number string) {
+	match := pullRequestRegexp.FindStringSubmatch(url)
+	if match == nil {
+		return owner, repo, number
+	}
+
+	owner = match[1]
+	repo = match[2]
+	number = match[3]
+	return owner, repo, number
+}
+
 func parsePRArguments(c *cli.Context) (prConfig, error) {
 	var owner, repo, number string
 
@@ -72,14 +84,11 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 	// If a single argument is provided, it is expected to be a pull request URL
 	case c.NArg() == 1:
 		url := c.Args().Get(0)
-		match := pullRequestRegexp.FindStringSubmatch(url)
-		if match == nil {
+		owner, repo, number = extractNumberFromPrURL(url)
+
+		if len(number) == 0 {
 			return prConfig{}, ErrInvalidPRURL{url}
 		}
-
-		owner = match[1]
-		repo = match[2]
-		number = match[3]
 	// If three arguments are provided, they are expected to be owner, repo, and PR number
 	case c.NArg() == 3:
 		owner = c.Args().Get(0)

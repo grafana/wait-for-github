@@ -185,6 +185,15 @@ func TestParseCIArguments(t *testing.T) {
 			},
 		},
 		{
+			name: "Valid PR URL",
+			args: []string{"https://github.com/owner/repo/pull/1234"},
+			want: ciConfig{
+				owner: "owner",
+				repo:  "repo",
+				ref:   "refs/pull/1234/head",
+			},
+		},
+		{
 			name: "Valid arguments owner, repo, ref",
 			args: []string{"owner", "repo", "abc123"},
 			want: ciConfig{
@@ -196,7 +205,7 @@ func TestParseCIArguments(t *testing.T) {
 		{
 			name:    "Invalid commit URL",
 			args:    []string{"https://invalid_url"},
-			wantErr: ErrInvalidCommitURL{},
+			wantErr: ErrInvalidURL{},
 		},
 		{
 			name:    "Invalid number of arguments",

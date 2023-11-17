@@ -58,14 +58,14 @@ NAME:
    wait-for-github ci - Wait for CI to be finished
 
 USAGE:
-   wait-for-github ci [command options] <https://github.com/OWNER/REPO/commit/HASH|owner> [<repo> <ref>]
+   wait-for-github ci [command options] <https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]
 
 OPTIONS:
-   --check value, -c value [ --check value, -c value ]  Check the status of a specific CI check. By default, the status of all checks is checked. [$GITHUB_CI_CHECKS]
+   --check value, -c value [ --check value, -c value ]  Check the status of a specific CI check. By default, the status of all required checks is checked. [$GITHUB_CI_CHECKS]
    --help, -h  show help (default: false)
 ```
 
-This command will wait for CI checks to finish for a ref. If they finish
+This command will wait for CI checks to finish for a ref or PR URL. If they finish
 successfully it will exit `0` and otherwise it will exit `1`.
 
 ## Action
@@ -101,15 +101,15 @@ checks on the repository. Only used when `wait-for` is set to `"ci"`. Optional.
 If not set, all checks will be waited for, but then the tool may miss checks
 which are not added immediately.
 
-#### `owner`
-
-GitHub repo owner. Optional. Default is the current repository's owner,
-`${{ github.repository_owner }}`.
-
 #### `interval`
 
 Recheck interval (i.e. poll this often) in golang duration format. Optional.
 Default is `30s`.
+
+#### `owner`
+
+GitHub repo owner. Optional. Default is the current repository's owner,
+`${{ github.repository_owner }}`.
 
 #### `repo`
 
