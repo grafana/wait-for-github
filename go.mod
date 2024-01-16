@@ -1,6 +1,6 @@
 module github.com/grafana/wait-for-github
 
-go 1.20
+go 1.21
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.9.0
