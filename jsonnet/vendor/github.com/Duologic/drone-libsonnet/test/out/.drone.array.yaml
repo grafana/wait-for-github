@@ -1,9 +1,0 @@
----
-"kind": "pipeline"
-"name": "pipeline1"
-"type": "docker"
----
-"kind": "pipeline"
-"name": "pipeline2"
-"type": "docker"
-...

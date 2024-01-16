@@ -1,5 +1,0 @@
----
-"kind": "pipeline"
-"name": "pipeline1"
-"type": "docker"
-...
