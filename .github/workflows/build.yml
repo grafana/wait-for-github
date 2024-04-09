@@ -12,7 +12,7 @@ on:
     paths:
       - go.mod
       - go.sum
-      - '**/*.go'
+      - "**/*.go"
       - Dockerfile
       - .github/workflows/build.yml
 
