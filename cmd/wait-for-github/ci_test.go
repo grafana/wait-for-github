@@ -75,7 +75,7 @@ func TestHandleCIStatus(t *testing.T) {
 		tt := tt
 
 		t.Run(tt.name, func(t *testing.T) {
-			output := handleCIStatus(tt.status, 1)
+			output := handleCIStatus(tt.status, 1, "")
 			if tt.expectedExitCode == nil {
 				require.Nil(t, output)
 			} else {
@@ -230,4 +230,16 @@ func TestParseCIArguments(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestUrlFor(t *testing.T) {
+	t.Parallel()
+
+	owner := "owner"
+	repo := "repo"
+	ref := "abc123"
+
+	url := urlFor(owner, repo, ref)
+
+	require.Equal(t, "https://github.com/owner/repo/commit/abc123", url)
 }

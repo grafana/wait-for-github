@@ -121,7 +121,7 @@ func parseCIArguments(c *cli.Context) (ciConfig, error) {
 	}, nil
 }
 
-func handleCIStatus(status github.CIStatus, recheckInterval time.Duration) cli.ExitCoder {
+func handleCIStatus(status github.CIStatus, recheckInterval time.Duration, url string) cli.ExitCoder {
 	switch status {
 	case github.CIStatusUnknown:
 		log.Infof("CI status is unknown, rechecking in %s", recheckInterval)
@@ -129,7 +129,7 @@ func handleCIStatus(status github.CIStatus, recheckInterval time.Duration) cli.E
 	case github.CIStatusPassed:
 		return cli.Exit("CI successful", 0)
 	case github.CIStatusFailed:
-		return cli.Exit("CI failed", 1)
+		return cli.Exit(fmt.Sprintf("CI failed. Please check CI on the following commit: %s", url), 1)
 	}
 
 	log.Infof("CI is not finished yet, rechecking in %s", recheckInterval)
@@ -149,7 +149,7 @@ func (ci checkAllCI) Check(ctx context.Context, recheckInterval time.Duration) e
 		return err
 	}
 
-	return handleCIStatus(status, recheckInterval)
+	return handleCIStatus(status, recheckInterval, urlFor(ci.owner, ci.repo, ci.ref))
 }
 
 type checkSpecificCI struct {
@@ -176,7 +176,7 @@ func (ci checkSpecificCI) Check(ctx context.Context, recheckInterval time.Durati
 		log.Infof("CI checks are not finished yet (still waiting for %s), rechecking in %s", strings.Join(interestingChecks, ", "), recheckInterval)
 	}
 
-	return handleCIStatus(status, recheckInterval)
+	return handleCIStatus(status, recheckInterval, urlFor(ci.owner, ci.repo, ci.ref))
 }
 
 func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus, cfg *config, ciConf *ciConfig) error {
@@ -237,4 +237,8 @@ func ciCommand(cfg *config) *cli.Command {
 			},
 		},
 	}
+}
+
+func urlFor(owner, repo, ref string) string {
+	return fmt.Sprintf("https://github.com/%s/%s/commit/%s", owner, repo, ref)
 }
