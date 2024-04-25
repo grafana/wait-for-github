@@ -47,17 +47,22 @@ func TestHandleCIStatus(t *testing.T) {
 	tests := []struct {
 		name             string
 		status           github.CIStatus
+		url              string
 		expectedExitCode *int
+		expectedError    string
 	}{
 		{
 			name:             "passed",
 			status:           github.CIStatusPassed,
 			expectedExitCode: &zero,
+			expectedError:    "CI successful",
 		},
 		{
 			name:             "failed",
 			status:           github.CIStatusFailed,
+			url:              "https://example.com",
 			expectedExitCode: &one,
+			expectedError:    "CI failed. Please check CI on the following commit: https://example.com",
 		},
 		{
 			name:             "pending",
@@ -75,12 +80,14 @@ func TestHandleCIStatus(t *testing.T) {
 		tt := tt
 
 		t.Run(tt.name, func(t *testing.T) {
-			output := handleCIStatus(tt.status, 1, "")
+			output := handleCIStatus(tt.status, 1, tt.url)
+
 			if tt.expectedExitCode == nil {
 				require.Nil(t, output)
 			} else {
 				require.NotNil(t, output)
 				require.Equal(t, *tt.expectedExitCode, output.ExitCode())
+				require.Equal(t, tt.expectedError, output.Error())
 			}
 		})
 	}
