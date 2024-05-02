@@ -3,6 +3,7 @@ name: Build
 permissions:
   contents: read
   id-token: write
+  attestations: write
 
 on:
   pull_request:
@@ -27,9 +28,9 @@ jobs:
         uses: docker/setup-buildx-action@4fd812986e6c8c2a69e18311145f9371337f27d4 # v3.4.0
 
       - name: Build Docker image
-        uses: grafana/shared-workflows/actions/build-push-to-dockerhub@main
+        uses: grafana/shared-workflows/actions/build-push-to-dockerhub@refs/heads/iainlane/attestations
         with:
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: |
-            "latest"
+            "iainlane-attestation-test"
           repository: "grafana/wait-for-github"
