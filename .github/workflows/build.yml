@@ -31,6 +31,7 @@ jobs:
         uses: grafana/shared-workflows/actions/build-push-to-dockerhub@refs/heads/iainlane/attestations
         with:
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             "iainlane-attestation-test"
           repository: "grafana/wait-for-github"
