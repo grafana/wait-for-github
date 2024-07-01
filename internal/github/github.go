@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v52/github"
@@ -29,6 +30,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 )
+
+const PENDING_RECHECK_TIME = 5 * time.Second
 
 type CheckPRMerged interface {
 	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error)
@@ -59,8 +62,25 @@ type AuthInfo struct {
 	GithubToken string
 }
 
+// sleeper is a type that can sleep for a duration. It's used to allow for
+// mocking sleep in tests. By default, it uses `time.Sleep`, but it can be
+// initialised with a custom sleep function which will be called if set.
+type sleeper struct {
+	doSleep func(time.Duration)
+}
+
+func (s *sleeper) sleep(d time.Duration) {
+	if s != nil {
+		s.doSleep(d)
+		return
+	}
+
+	time.Sleep(d)
+}
+
 type GHClient struct {
-	client *github.Client
+	client  *github.Client
+	sleeper *sleeper
 }
 
 func NewGithubClient(ctx context.Context, authInfo AuthInfo) (GHClient, error) {
@@ -178,6 +198,46 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref s
 	case "failure":
 		return CIStatusFailed, nil
 	case "pending":
+		// From the GitHub API docs
+		// (https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#get-the-combined-status-for-a-specific-reference):
+		//
+		// > Additionally, a combined state is returned. The state is one of:
+		// > ...
+		// > pending *if there are no statuses* or a context is pending
+		// > ...
+		//
+		// (Emphasis ours.) This means that if there are no statuses, the
+		// combined status will be "pending". We need to check if there are
+		// statuses to determine if the status is actually pending. If there
+		// aren't any, we should consider this to be a success. But. A status
+		// check could take a while to be created (think a webhook to a CI
+		// system that takes a while to start a build). So we can wait a bit
+		// and then check again.
+		if len(status.Statuses) == 0 {
+			log.Info("No statuses found, waiting for a bit to see if one appears")
+			c.sleeper.sleep(PENDING_RECHECK_TIME)
+
+			status, _, err = c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, opt)
+			if err != nil {
+				return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+			}
+
+			state := status.GetState()
+
+			// Something changed - this will cause us to be called again.
+			if state != "pending" {
+				return CIStatusUnknown, nil
+			}
+
+			// Ok, cool, now we believe it's not going to get a status, so let's say it passed.
+			if len(status.Statuses) == 0 {
+				log.Debug("No statuses found after waiting, assuming success")
+				return CIStatusPassed, nil
+			}
+
+			// It's really pending
+		}
+
 		return CIStatusPending, nil
 	}
 

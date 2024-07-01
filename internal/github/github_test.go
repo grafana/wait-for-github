@@ -117,7 +117,10 @@ func newClientFromMock(t *testing.T, mockClient *http.Client) *GHClient {
 
 	httpClient := &http.Client{Transport: transport}
 
-	return &GHClient{client: github.NewClient(httpClient)}
+	return &GHClient{
+		client:  github.NewClient(httpClient),
+		sleeper: &sleeper{func(_ time.Duration) {}},
+	}
 }
 
 // TestResponsesAreRetried tests that responses are retried by the retrying
@@ -293,6 +296,7 @@ func TestGetCIStatus(t *testing.T) {
 	tests := []struct {
 		name           string
 		status         *github.CombinedStatus
+		status2        *github.CombinedStatus
 		expectedStatus CIStatus
 	}{
 		{
@@ -306,6 +310,43 @@ func TestGetCIStatus(t *testing.T) {
 			name: "pending",
 			status: &github.CombinedStatus{
 				State: github.String("pending"),
+				Statuses: []*github.RepoStatus{
+					{
+						State: github.String("pending"),
+					},
+				},
+			},
+			expectedStatus: CIStatusPending,
+		},
+		{
+			name: "pending (no statuses)",
+			status: &github.CombinedStatus{
+				State: github.String("pending"),
+			},
+			status2: &github.CombinedStatus{
+				State: github.String("pending"),
+			},
+			expectedStatus: CIStatusPassed,
+		},
+		{
+			name: "pending (no status then pass)",
+			status: &github.CombinedStatus{
+				State: github.String("pending"),
+			},
+			status2: &github.CombinedStatus{
+				State: github.String("success"),
+			},
+			expectedStatus: CIStatusUnknown,
+		},
+		{
+			name: "pending (no status then pending but w/status this time)",
+			status: &github.CombinedStatus{
+				State: github.String("pending"),
+				Statuses: []*github.RepoStatus{
+					{
+						State: github.String("somecheck"),
+					},
+				},
 			},
 			expectedStatus: CIStatusPending,
 		},
@@ -337,6 +378,7 @@ func TestGetCIStatus(t *testing.T) {
 				mock.WithRequestMatch(
 					mock.GetReposCommitsStatusByOwnerByRepoByRef,
 					tt.status,
+					tt.status2,
 				),
 			)
 
