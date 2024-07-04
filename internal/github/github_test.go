@@ -232,7 +232,7 @@ func TestResponsesAreCached(t *testing.T) {
 	require.Equal(t, mergedTs, mergedTs3)
 }
 
-func errorReturningHandler(t *testing.T, ep mock.EndpointPattern) mock.MockBackendOption {
+func errorReturningHandler(t *testing.T, _ mock.EndpointPattern) mock.MockBackendOption {
 	t.Helper()
 
 	return mock.WithRequestMatchHandler(
@@ -404,19 +404,21 @@ func TestGetCIStatusForChecks(t *testing.T) {
 	tests := []struct {
 		name            string
 		checksToLookFor []string
-		mockCheckRuns   []*github.CheckRun
-		mockRepoStatus  []*github.RepoStatus
+		mockCheckRuns   [][]github.CheckRun
+		mockRepoStatus  [][]github.RepoStatus
 		expectedStatus  CIStatus
 		expectedAwait   []string
 	}{
 		{
 			name:            "Single check - completed with success",
 			checksToLookFor: []string{"check1"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:       github.String("check1"),
-					Status:     github.String("completed"),
-					Conclusion: github.String("success"),
+					{
+						Name:       github.String("check1"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPassed,
@@ -425,11 +427,13 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - completed with failure",
 			checksToLookFor: []string{"check1"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:       github.String("check1"),
-					Status:     github.String("completed"),
-					Conclusion: github.String("failure"),
+					{
+						Name:       github.String("check1"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("failure"),
+					},
 				},
 			},
 			expectedStatus: CIStatusFailed,
@@ -438,10 +442,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - queued",
 			checksToLookFor: []string{"check1"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:   github.String("check1"),
-					Status: github.String("queued"),
+					{
+						Name:   github.String("check1"),
+						Status: github.String("queued"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPending,
@@ -450,10 +456,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - in progress",
 			checksToLookFor: []string{"check1"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:   github.String("check1"),
-					Status: github.String("in_progress"),
+					{
+						Name:   github.String("check1"),
+						Status: github.String("in_progress"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPending,
@@ -462,11 +470,13 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - skipped",
 			checksToLookFor: []string{"check1"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:       github.String("check1"),
-					Conclusion: github.String("skipped"),
-					Status:     github.String("completed"),
+					{
+						Name:       github.String("check1"),
+						Conclusion: github.String("skipped"),
+						Status:     github.String("completed"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPassed,
@@ -475,10 +485,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - doesn't exist, status success",
 			checksToLookFor: []string{"check1"},
-			mockRepoStatus: []*github.RepoStatus{
+			mockRepoStatus: [][]github.RepoStatus{
 				{
-					Context: github.String("check1"),
-					State:   github.String("success"),
+					{
+						Context: github.String("check1"),
+						State:   github.String("success"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPassed,
@@ -487,14 +499,36 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - doesn't exist, status success, multiple statuses returned",
 			checksToLookFor: []string{"check1"},
-			mockRepoStatus: []*github.RepoStatus{
+			mockRepoStatus: [][]github.RepoStatus{
 				{
-					Context: github.String("what"),
-					State:   github.String("failed"),
+					{
+						Context: github.String("what"),
+						State:   github.String("failed"),
+					},
+					{
+						Context: github.String("check1"),
+						State:   github.String("success"),
+					},
+				},
+			},
+			expectedStatus: CIStatusPassed,
+			expectedAwait:  nil,
+		},
+		{
+			name:            "Single check - doesn't exist, status success, multiple statuses returned, multiple pages",
+			checksToLookFor: []string{"check1"},
+			mockRepoStatus: [][]github.RepoStatus{
+				{
+					{
+						Context: github.String("what"),
+						State:   github.String("failed"),
+					},
 				},
 				{
-					Context: github.String("check1"),
-					State:   github.String("success"),
+					{
+						Context: github.String("check1"),
+						State:   github.String("success"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPassed,
@@ -503,10 +537,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - doesn't exist, status failure",
 			checksToLookFor: []string{"check1"},
-			mockRepoStatus: []*github.RepoStatus{
+			mockRepoStatus: [][]github.RepoStatus{
 				{
-					Context: github.String("check1"),
-					State:   github.String("failure"),
+					{
+						Context: github.String("check1"),
+						State:   github.String("failure"),
+					},
 				},
 			},
 			expectedStatus: CIStatusFailed,
@@ -515,10 +551,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - doesn't exist, status pending",
 			checksToLookFor: []string{"check1"},
-			mockRepoStatus: []*github.RepoStatus{
+			mockRepoStatus: [][]github.RepoStatus{
 				{
-					Context: github.String("check1"),
-					State:   github.String("pending"),
+					{
+						Context: github.String("check1"),
+						State:   github.String("pending"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPending,
@@ -527,10 +565,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Single check - doesn't exist, status error",
 			checksToLookFor: []string{"check1"},
-			mockRepoStatus: []*github.RepoStatus{
+			mockRepoStatus: [][]github.RepoStatus{
 				{
-					Context: github.String("check1"),
-					State:   github.String("error"),
+					{
+						Context: github.String("check1"),
+						State:   github.String("error"),
+					},
 				},
 			},
 			expectedStatus: CIStatusFailed,
@@ -539,34 +579,80 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Multiple checks - all successful",
 			checksToLookFor: []string{"check1", "check2"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:       github.String("check1"),
-					Status:     github.String("completed"),
-					Conclusion: github.String("success"),
-				},
-				{
-					Name:       github.String("check2"),
-					Status:     github.String("completed"),
-					Conclusion: github.String("success"),
+					{
+						Name:       github.String("check1"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
+					{
+						Name:       github.String("check2"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPassed,
 			expectedAwait:  nil,
 		},
 		{
-			name:            "Multiple checks - one failed",
+			name:            "Multiple checks - all successful - multiple pages",
 			checksToLookFor: []string{"check1", "check2"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:       github.String("check1"),
-					Status:     github.String("completed"),
-					Conclusion: github.String("success"),
+					{
+						Name:       github.String("check1"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
 				},
 				{
-					Name:       github.String("check2"),
-					Status:     github.String("completed"),
-					Conclusion: github.String("failure"),
+					{
+						Name:       github.String("check2"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
+				},
+			},
+		},
+		{
+			name:            "Multiple checks - one failed",
+			checksToLookFor: []string{"check1", "check2"},
+			mockCheckRuns: [][]github.CheckRun{
+				{
+					{
+						Name:       github.String("check1"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
+					{
+						Name:       github.String("check2"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("failure"),
+					},
+				},
+			},
+			expectedStatus: CIStatusFailed,
+			expectedAwait:  []string{"check2"},
+		},
+		{
+			name:            "Multiple checks - one failed - multiple pages",
+			checksToLookFor: []string{"check1", "check2"},
+			mockCheckRuns: [][]github.CheckRun{
+				{
+					{
+						Name:       github.String("check1"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
+				},
+				{
+					{
+						Name:       github.String("check2"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("failure"),
+					},
 				},
 			},
 			expectedStatus: CIStatusFailed,
@@ -575,19 +661,57 @@ func TestGetCIStatusForChecks(t *testing.T) {
 		{
 			name:            "Multiple checks - one pending",
 			checksToLookFor: []string{"check1", "check2"},
-			mockCheckRuns: []*github.CheckRun{
+			mockCheckRuns: [][]github.CheckRun{
 				{
-					Name:       github.String("check1"),
-					Status:     github.String("completed"),
-					Conclusion: github.String("success"),
-				},
-				{
-					Name:   github.String("check2"),
-					Status: github.String("queued"),
+					{
+						Name:       github.String("check1"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
+					{
+						Name:   github.String("check2"),
+						Status: github.String("queued"),
+					},
 				},
 			},
 			expectedStatus: CIStatusPending,
 			expectedAwait:  []string{"check2"},
+		},
+		{
+			name:            "Multiple checks - multiple statuses - passed - multiple pages",
+			checksToLookFor: []string{"check2", "check4"},
+			mockRepoStatus: [][]github.RepoStatus{
+				{
+					{
+						Context: github.String("check1"),
+						State:   github.String("success"),
+					},
+				},
+				{
+					{
+						Context: github.String("check2"),
+						State:   github.String("success"),
+					},
+				},
+			},
+			mockCheckRuns: [][]github.CheckRun{
+				{
+					{
+						Name:       github.String("check3"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
+				},
+				{
+					{
+						Name:       github.String("check4"),
+						Status:     github.String("completed"),
+						Conclusion: github.String("success"),
+					},
+				},
+			},
+			expectedStatus: CIStatusPassed,
+			expectedAwait:  nil,
 		},
 		{
 			name:            "Check not returned at all - unknown - converted to pending",
@@ -598,12 +722,29 @@ func TestGetCIStatusForChecks(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx := context.Background()
+
+			// We need to return a zero-length page rather than nil.
+			if len(tt.mockCheckRuns) == 0 {
+				tt.mockCheckRuns = [][]github.CheckRun{
+					{},
+				}
+			}
+			if tt.mockRepoStatus == nil {
+				tt.mockRepoStatus = [][]github.RepoStatus{
+					{},
+				}
+			}
+
+			// Convert tt.mockRepoStatus to an []interface{} so that we can pass
+			// it to WithRequestMatchPages.
+			var interfaceStatuses []interface{}
+			for _, statuses := range tt.mockRepoStatus {
+				interfaceStatuses = append(interfaceStatuses, statuses)
+			}
 
 			mockedHTTPClient := mock.NewMockedHTTPClient(
 				mock.WithRequestMatchHandler(
@@ -615,32 +756,32 @@ func TestGetCIStatusForChecks(t *testing.T) {
 						require.NoError(t, err)
 						checkName := uri.Query().Get("check_name")
 
-						var runs []*github.CheckRun
-						if checkName == "" {
-							runs = tt.mockCheckRuns
-						} else {
-							for _, run := range tt.mockCheckRuns {
-								if *run.Name == checkName {
-									runs = append(runs, run)
+						runs := make([][]*github.CheckRun, len(tt.mockCheckRuns))
+						pages := make([][]byte, len(tt.mockCheckRuns))
+						for i, page := range tt.mockCheckRuns {
+							for _, run := range page {
+								if checkName == "" || *run.Name == checkName {
+									runs[i] = append(runs[i], &run)
 								}
 							}
+							pages[i] = mock.MustMarshal(
+								github.ListCheckRunsResults{
+									Total:     github.Int(len(runs[i])),
+									CheckRuns: runs[i],
+								},
+							)
 						}
 
-						_, err = w.Write(
-							mock.MustMarshal(
-								github.ListCheckRunsResults{
-									Total:     github.Int(len(runs)),
-									CheckRuns: runs,
-								},
-							),
-						)
+						handler := &mock.PaginatedResponseHandler{
+							ResponsePages: pages,
+						}
 
-						require.NoError(t, err)
+						handler.ServeHTTP(w, r)
 					}),
 				),
-				mock.WithRequestMatch(
+				mock.WithRequestMatchPages(
 					mock.GetReposCommitsStatusesByOwnerByRepoByRef,
-					tt.mockRepoStatus,
+					interfaceStatuses...,
 				),
 			)
 

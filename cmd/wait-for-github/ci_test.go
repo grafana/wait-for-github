@@ -42,8 +42,6 @@ func (c *FakeCIStatusChecker) GetCIStatusForChecks(ctx context.Context, owner, r
 }
 
 func TestHandleCIStatus(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name             string
 		status           github.CIStatus
@@ -77,9 +75,9 @@ func TestHandleCIStatus(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
-
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			output := handleCIStatus(tt.status, 1, tt.url)
 
 			if tt.expectedExitCode == nil {
@@ -93,8 +91,6 @@ func TestHandleCIStatus(t *testing.T) {
 	}
 }
 func TestCheckCIStatus(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name             string
 		checks           []string
@@ -152,6 +148,8 @@ func TestCheckCIStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			fakeCIStatusChecker := &FakeCIStatusChecker{status: tt.status, err: tt.err}
 			cfg := &config{
 				recheckInterval: 1,
@@ -223,6 +221,8 @@ func TestParseCIArguments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			flagSet := flag.NewFlagSet("test", flag.ContinueOnError)
 			err := flagSet.Parse(tt.args)
 			require.NoError(t, err)
@@ -237,6 +237,59 @@ func TestParseCIArguments(t *testing.T) {
 			require.Equal(t, tt.want, got)
 		})
 	}
+}
+
+type UnknownCIStatusChecker struct {
+	calls int
+}
+
+func (c *UnknownCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (github.CIStatus, error) {
+	c.calls++
+	if c.calls == 1 {
+		return github.CIStatusUnknown, nil
+	}
+
+	return github.CIStatusPassed, nil
+}
+
+func (c *UnknownCIStatusChecker) GetCIStatusForChecks(ctx context.Context, owner, repo string, commitHash string, checkNames []string) (github.CIStatus, []string, error) {
+	c.calls++
+	if c.calls == 1 {
+		return github.CIStatusUnknown, checkNames, nil
+	}
+
+	return github.CIStatusPassed, checkNames, nil
+}
+
+func TestUnknownCIStatusRetries(t *testing.T) {
+	t.Parallel()
+
+	fakeCIStatusChecker := &UnknownCIStatusChecker{}
+	cfg := &config{
+		recheckInterval: 1,
+	}
+	ciConf := &ciConfig{
+		owner: "owner",
+		repo:  "repo",
+		ref:   "ref",
+	}
+
+	ctx := context.Background()
+
+	err := checkCIStatus(ctx, fakeCIStatusChecker, cfg, ciConf)
+
+	var exitErr cli.ExitCoder
+	require.ErrorAs(t, err, &exitErr)
+	require.Equal(t, zero, exitErr.ExitCode())
+	require.Equal(t, 2, fakeCIStatusChecker.calls)
+
+	fakeCIStatusChecker.calls = 0
+	ciConf.checks = []string{"check1", "check2"}
+	err = checkCIStatus(ctx, fakeCIStatusChecker, cfg, ciConf)
+
+	require.ErrorAs(t, err, &exitErr)
+	require.Equal(t, zero, exitErr.ExitCode())
+	require.Equal(t, 2, fakeCIStatusChecker.calls)
 }
 
 func TestUrlFor(t *testing.T) {
