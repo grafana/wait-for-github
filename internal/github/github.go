@@ -183,11 +183,7 @@ func (c CIStatus) String() string {
 }
 
 func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref string) (CIStatus, error) {
-	opt := &github.ListOptions{
-		PerPage: 100,
-	}
-
-	status, _, err := c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, opt)
+	status, _, err := c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, nil)
 	if err != nil {
 		return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
 	}
@@ -217,7 +213,7 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref s
 			log.Info("No statuses found, waiting for a bit to see if one appears")
 			c.sleeper.sleep(PENDING_RECHECK_TIME)
 
-			status, _, err = c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, opt)
+			status, _, err = c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, nil)
 			if err != nil {
 				return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
 			}
@@ -255,14 +251,22 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 		Filter:      github.String("latest"),
 	}
 
-	checkRuns, _, err := c.client.Checks.ListCheckRunsForRef(ctx, owner, repoName, ref, opt)
-	if err != nil {
-		return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+	var checkRuns []*github.CheckRun
+	for {
+		runs, resp, err := c.client.Checks.ListCheckRunsForRef(ctx, owner, repoName, ref, opt)
+		if err != nil {
+			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+		}
+		checkRuns = append(checkRuns, runs.CheckRuns...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		opt.Page = resp.NextPage
 	}
 
-	statuses := make([]*github.RepoStatus, 0)
-
-	for _, checkRun := range checkRuns.CheckRuns {
+	for _, checkRun := range checkRuns {
 		switch checkRun.GetStatus() {
 		case "completed":
 			switch checkRun.GetConclusion() {
@@ -280,13 +284,24 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 		}
 	}
 
+	statuses := make([]*github.RepoStatus, 0)
+	listOptions.Page = 0
+
 	// didn't find the check run, so list statuses. we can't filter by status
 	// name like we can for checks, so retrieve all results the first time
-	if len(statuses) == 0 {
-		statuses, _, err = c.client.Repositories.ListStatuses(ctx, owner, repoName, ref, &listOptions)
+	for {
+		s, resp, err := c.client.Repositories.ListStatuses(ctx, owner, repoName, ref, &listOptions)
 		if err != nil {
 			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
 		}
+
+		statuses = append(statuses, s...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		listOptions.Page = resp.NextPage
 	}
 
 	// get the statuses for the commit
