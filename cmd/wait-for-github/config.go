@@ -25,5 +25,6 @@ import (
 type config struct {
 	github.AuthInfo
 	recheckInterval time.Duration
+	pendingRecheckTime time.Duration
 	globalTimeout   time.Duration
 }

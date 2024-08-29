@@ -44,8 +44,9 @@ func TestNewGithubClientWithToken(t *testing.T) {
 	authInfo := AuthInfo{
 		GithubToken: "my-token",
 	}
+	pendingRecheckTime := 1 * time.Second
 
-	githubClient, err := NewGithubClient(ctx, authInfo)
+	githubClient, err := NewGithubClient(ctx, authInfo, pendingRecheckTime)
 	require.NoError(t, err)
 
 	if githubClient.client == nil {
@@ -81,8 +82,9 @@ func TestNewGithubClientWithAppAuthentication(t *testing.T) {
 		// generate this with: openssl genrsa 32 2>/dev/null | awk 1 ORS='\\n'
 		PrivateKey: []byte("-----BEGIN RSA PRIVATE KEY-----\nMC0CAQACBQD7J5Q9AgMBAAECBB6C8NkCAwD+JwIDAPz7AgMA1xcCAkoZAgMAwE8=\n-----END RSA PRIVATE KEY-----"),
 	}
+	pendingRecheckTime := 1 * time.Second
 
-	githubClient, err := NewGithubClient(ctx, authInfo)
+	githubClient, err := NewGithubClient(ctx, authInfo, pendingRecheckTime)
 	require.NoError(t, err)
 
 	if githubClient.client == nil {
@@ -120,6 +122,7 @@ func newClientFromMock(t *testing.T, mockClient *http.Client) *GHClient {
 	return &GHClient{
 		client:  github.NewClient(httpClient),
 		sleeper: &sleeper{func(_ time.Duration) {}},
+		pendingRecheckTime: 1 * time.Second,
 	}
 }
 

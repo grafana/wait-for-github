@@ -92,6 +92,12 @@ func root() *cli.App {
 				Value:   time.Duration(30 * time.Second),
 			},
 			&cli.DurationFlag{
+				Name:    "pending-recheck-time",
+				Usage:   "Time after which to recheck the pending status on GitHub.",
+				EnvVars: []string{"PENDING_RECHECK_TIME"},
+				Value:   5 * time.Second, // default value
+			},
+			&cli.DurationFlag{
 				Name:    "timeout",
 				Usage:   "Timeout after which to stop checking GitHub.",
 				EnvVars: []string{"TIMEOUT"},
@@ -135,6 +141,7 @@ func handleGlobalConfig(c *cli.Context) (config, error) {
 	cfg := config{}
 
 	cfg.recheckInterval = c.Duration("recheck-interval")
+	cfg.pendingRecheckTime = c.Duration("pending-recheck-time")
 	cfg.globalTimeout = c.Duration("timeout")
 
 	token := c.String("github-token")
