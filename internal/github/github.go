@@ -31,8 +31,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const PENDING_RECHECK_TIME = 5 * time.Second
-
 type CheckPRMerged interface {
 	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error)
 }
@@ -81,19 +79,31 @@ func (s *sleeper) sleep(d time.Duration) {
 type GHClient struct {
 	client  *github.Client
 	sleeper *sleeper
+	pendingRecheckTime time.Duration
 }
 
-func NewGithubClient(ctx context.Context, authInfo AuthInfo) (GHClient, error) {
+func NewGithubClient(ctx context.Context, authInfo AuthInfo, pendingRecheckTime time.Duration) (GHClient, error) {
+	var (
+		githubClient GHClient
+		err          error
+	)
+
 	// If a GitHub token is provided, use it to authenticate in preference to
 	// App authentication
 	if authInfo.GithubToken != "" {
 		log.Debug("Using GitHub token for authentication")
-		return AuthenticateWithToken(ctx, authInfo.GithubToken), nil
+		githubClient = AuthenticateWithToken(ctx, authInfo.GithubToken)
+	} else {
+		// Otherwise, use the App authentication flow
+		log.Debug("Using GitHub App for authentication")
+		githubClient, err = AuthenticateWithApp(ctx, authInfo.PrivateKey, authInfo.AppID, authInfo.InstallationID)
+		if err != nil {
+			return GHClient{}, err
+		}
 	}
 
-	// Otherwise, use the App authentication flow
-	log.Debug("Using GitHub App for authentication")
-	return AuthenticateWithApp(ctx, authInfo.PrivateKey, authInfo.AppID, authInfo.InstallationID)
+	githubClient.pendingRecheckTime = pendingRecheckTime
+	return githubClient, nil
 }
 
 func cachingRetryableTransport() http.RoundTripper {
@@ -210,8 +220,8 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref s
 		// system that takes a while to start a build). So we can wait a bit
 		// and then check again.
 		if len(status.Statuses) == 0 {
-			log.Info("No statuses found, waiting for a bit to see if one appears")
-			c.sleeper.sleep(PENDING_RECHECK_TIME)
+			log.Infof("No statuses found, waiting %s to see if one appears", c.pendingRecheckTime)
+			c.sleeper.sleep(c.pendingRecheckTime)
 
 			status, _, err = c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, nil)
 			if err != nil {

@@ -216,7 +216,7 @@ func ciCommand(cfg *config) *cli.Command {
 			return err
 		},
 		Action: func(c *cli.Context) error {
-			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo)
+			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}
