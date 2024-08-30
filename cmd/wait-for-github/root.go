@@ -95,7 +95,7 @@ func root() *cli.App {
 				Name:    "pending-recheck-time",
 				Usage:   "Time after which to recheck the pending status on GitHub.",
 				EnvVars: []string{"PENDING_RECHECK_TIME"},
-				Value:   5 * time.Second, // default value
+				Value:   5 * time.Second,
 			},
 			&cli.DurationFlag{
 				Name:    "timeout",
