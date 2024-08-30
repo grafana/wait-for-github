@@ -121,8 +121,7 @@ func newClientFromMock(t *testing.T, mockClient *http.Client) *GHClient {
 
 	return &GHClient{
 		client:  github.NewClient(httpClient),
-		sleeper: &sleeper{func(_ time.Duration) {}},
-		pendingRecheckTime: 1 * time.Second,
+		pendingRecheckTime: 0 * time.Second,
 	}
 }
 

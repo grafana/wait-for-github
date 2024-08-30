@@ -60,25 +60,8 @@ type AuthInfo struct {
 	GithubToken string
 }
 
-// sleeper is a type that can sleep for a duration. It's used to allow for
-// mocking sleep in tests. By default, it uses `time.Sleep`, but it can be
-// initialised with a custom sleep function which will be called if set.
-type sleeper struct {
-	doSleep func(time.Duration)
-}
-
-func (s *sleeper) sleep(d time.Duration) {
-	if s != nil {
-		s.doSleep(d)
-		return
-	}
-
-	time.Sleep(d)
-}
-
 type GHClient struct {
 	client  *github.Client
-	sleeper *sleeper
 	pendingRecheckTime time.Duration
 }
 
@@ -210,7 +193,7 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref s
 		// and then check again.
 		if len(status.Statuses) == 0 {
 			log.Infof("No statuses found, waiting %s to see if one appears", c.pendingRecheckTime)
-			c.sleeper.sleep(c.pendingRecheckTime)
+			time.Sleep(c.pendingRecheckTime)
 
 			status, _, err = c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, nil)
 			if err != nil {
