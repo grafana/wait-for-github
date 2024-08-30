@@ -83,27 +83,16 @@ type GHClient struct {
 }
 
 func NewGithubClient(ctx context.Context, authInfo AuthInfo, pendingRecheckTime time.Duration) (GHClient, error) {
-	var (
-		githubClient GHClient
-		err          error
-	)
-
 	// If a GitHub token is provided, use it to authenticate in preference to
 	// App authentication
 	if authInfo.GithubToken != "" {
 		log.Debug("Using GitHub token for authentication")
-		githubClient = AuthenticateWithToken(ctx, authInfo.GithubToken)
-	} else {
-		// Otherwise, use the App authentication flow
-		log.Debug("Using GitHub App for authentication")
-		githubClient, err = AuthenticateWithApp(ctx, authInfo.PrivateKey, authInfo.AppID, authInfo.InstallationID)
-		if err != nil {
-			return GHClient{}, err
-		}
+		return AuthenticateWithToken(ctx, authInfo.GithubToken, pendingRecheckTime), nil
 	}
 
-	githubClient.pendingRecheckTime = pendingRecheckTime
-	return githubClient, nil
+	// Otherwise, use the App authentication flow
+	log.Debug("Using GitHub App for authentication")
+	return AuthenticateWithApp(ctx, authInfo.PrivateKey, authInfo.AppID, authInfo.InstallationID, pendingRecheckTime)
 }
 
 func cachingRetryableTransport() http.RoundTripper {
@@ -117,7 +106,7 @@ func cachingRetryableTransport() http.RoundTripper {
 }
 
 // AuthenticateWithToken authenticates with a GitHub token
-func AuthenticateWithToken(ctx context.Context, token string) GHClient {
+func AuthenticateWithToken(ctx context.Context, token string, pendingRecheckTime time.Duration) GHClient {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
@@ -125,11 +114,11 @@ func AuthenticateWithToken(ctx context.Context, token string) GHClient {
 	httpClient := oauth2.NewClient(ctx, src)
 	githubClient := github.NewClient(httpClient)
 
-	return GHClient{client: githubClient}
+	return GHClient{client: githubClient, pendingRecheckTime: pendingRecheckTime}
 }
 
 // AuthenticateWithApp authenticates with a GitHub App
-func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installationID int64) (GHClient, error) {
+func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installationID int64, pendingRecheckTime time.Duration) (GHClient, error) {
 	itr, err := ghinstallation.New(cachingRetryableTransport(), appID, installationID, privateKey)
 	if err != nil {
 		return GHClient{}, fmt.Errorf("failed to create transport: %w", err)
@@ -137,7 +126,7 @@ func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installa
 
 	githubClient := github.NewClient(&http.Client{Transport: itr})
 
-	return GHClient{client: githubClient}, nil
+	return GHClient{client: githubClient, pendingRecheckTime: pendingRecheckTime }, nil
 }
 
 func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, int64, error) {
