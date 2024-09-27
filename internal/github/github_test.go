@@ -1,5 +1,5 @@
 // wait-for-github
-// Copyright (C) 2023, Grafana Labs
+// Copyright (C) 2023-2024, Grafana Labs
 
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License as published by the Free
@@ -297,6 +297,8 @@ func TestIsPRMergedOrClosed_Error(t *testing.T) {
 func TestGetCIStatus(t *testing.T) {
 	tests := []struct {
 		name           string
+		checks         []*github.CheckRun
+		checks2        []*github.CheckRun
 		status         *github.CombinedStatus
 		status2        *github.CombinedStatus
 		expectedStatus CIStatus
@@ -304,7 +306,8 @@ func TestGetCIStatus(t *testing.T) {
 		{
 			name: "success",
 			status: &github.CombinedStatus{
-				State: github.String("success"),
+				State:      github.String("success"),
+				TotalCount: github.Int(1),
 			},
 			expectedStatus: CIStatusPassed,
 		},
@@ -317,26 +320,31 @@ func TestGetCIStatus(t *testing.T) {
 						State: github.String("pending"),
 					},
 				},
+				TotalCount: github.Int(1),
 			},
 			expectedStatus: CIStatusPending,
 		},
 		{
 			name: "pending (no statuses)",
 			status: &github.CombinedStatus{
-				State: github.String("pending"),
+				State:      github.String("pending"),
+				TotalCount: github.Int(0),
 			},
 			status2: &github.CombinedStatus{
-				State: github.String("pending"),
+				State:      github.String("pending"),
+				TotalCount: github.Int(0),
 			},
 			expectedStatus: CIStatusPassed,
 		},
 		{
 			name: "pending (no status then pass)",
 			status: &github.CombinedStatus{
-				State: github.String("pending"),
+				State:      github.String("pending"),
+				TotalCount: github.Int(0),
 			},
 			status2: &github.CombinedStatus{
-				State: github.String("success"),
+				State:      github.String("success"),
+				TotalCount: github.Int(1),
 			},
 			expectedStatus: CIStatusUnknown,
 		},
@@ -349,20 +357,104 @@ func TestGetCIStatus(t *testing.T) {
 						State: github.String("somecheck"),
 					},
 				},
+				TotalCount: github.Int(1),
 			},
 			expectedStatus: CIStatusPending,
 		},
 		{
+			name: "status pending, check failed",
+			checks: []*github.CheckRun{
+				{
+					Status:     github.String("completed"),
+					Conclusion: github.String("failure"),
+				},
+			},
+			status: &github.CombinedStatus{
+				State:      github.String("pending"),
+				TotalCount: github.Int(0),
+			},
+			status2: &github.CombinedStatus{
+				State:      github.String("pending"),
+				TotalCount: github.Int(0),
+			},
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "check failed, status passed",
+			checks: []*github.CheckRun{
+				{
+					Status:     github.String("completed"),
+					Conclusion: github.String("failure"),
+				},
+			},
+			status: &github.CombinedStatus{
+				State:      github.String("success"),
+				TotalCount: github.Int(1),
+			},
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "pending check, status passed",
+			checks: []*github.CheckRun{
+				{
+					Status: github.String("queued"),
+				},
+			},
+			status: &github.CombinedStatus{
+				State:      github.String("success"),
+				TotalCount: github.Int(1),
+			},
+			expectedStatus: CIStatusPending,
+		},
+		{
+			name:   "no checks, then failed, status passed",
+			checks: []*github.CheckRun{},
+			checks2: []*github.CheckRun{
+				{
+					Status:     github.String("completed"),
+					Conclusion: github.String("failure"),
+				},
+			},
+			status: &github.CombinedStatus{
+				State:      github.String("success"),
+				TotalCount: github.Int(1),
+			},
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name:   "no checks, then passed, no status, then passed",
+			checks: []*github.CheckRun{},
+			checks2: []*github.CheckRun{
+				{
+					Status:     github.String("completed"),
+					Conclusion: github.String("success"),
+				},
+			},
+			status: &github.CombinedStatus{
+				State:      github.String("pending"),
+				TotalCount: github.Int(0),
+			},
+			status2: &github.CombinedStatus{
+				State:      github.String("success"),
+				TotalCount: github.Int(1),
+			},
+			// For status which change from no result to anything else, we
+			// return unknown to get called again on a subsequent iteration.
+			expectedStatus: CIStatusUnknown,
+		},
+		{
 			name: "failure",
 			status: &github.CombinedStatus{
-				State: github.String("failure"),
+				State:      github.String("failure"),
+				TotalCount: github.Int(1),
 			},
 			expectedStatus: CIStatusFailed,
 		},
 		{
 			name: "unknown",
 			status: &github.CombinedStatus{
-				State: github.String("unknown"),
+				State:      github.String("unknown"),
+				TotalCount: github.Int(1),
 			},
 			expectedStatus: CIStatusUnknown,
 		},
@@ -377,6 +469,17 @@ func TestGetCIStatus(t *testing.T) {
 			ctx := context.Background()
 
 			mockedHTTPClient := mock.NewMockedHTTPClient(
+				mock.WithRequestMatch(
+					mock.GetReposCommitsCheckRunsByOwnerByRepoByRef,
+					&github.ListCheckRunsResults{
+						Total:     github.Int(len(tt.checks)),
+						CheckRuns: tt.checks,
+					},
+					&github.ListCheckRunsResults{
+						Total:     github.Int(len(tt.checks2)),
+						CheckRuns: tt.checks2,
+					},
+				),
 				mock.WithRequestMatch(
 					mock.GetReposCommitsStatusByOwnerByRepoByRef,
 					tt.status,
