@@ -1,5 +1,5 @@
 // wait-for-github
-// Copyright (C) 2022-2023, Grafana Labs
+// Copyright (C) 2022-2024, Grafana Labs
 
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License as published by the Free
@@ -61,7 +61,7 @@ type AuthInfo struct {
 }
 
 type GHClient struct {
-	client  *github.Client
+	client             *github.Client
 	pendingRecheckTime time.Duration
 }
 
@@ -109,7 +109,7 @@ func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installa
 
 	githubClient := github.NewClient(&http.Client{Transport: itr})
 
-	return GHClient{client: githubClient, pendingRecheckTime: pendingRecheckTime }, nil
+	return GHClient{client: githubClient, pendingRecheckTime: pendingRecheckTime}, nil
 }
 
 func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, int64, error) {
@@ -164,7 +164,65 @@ func (c CIStatus) String() string {
 	}
 }
 
-func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref string) (CIStatus, error) {
+func (c GHClient) getCIChecksResult(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
+	listOptions := github.ListOptions{
+		PerPage: 100,
+	}
+
+	opt := &github.ListCheckRunsOptions{
+		ListOptions: listOptions,
+		Filter:      github.String("latest"),
+	}
+
+	status := CIStatusPending
+
+	for {
+		runs, resp, err := c.client.Checks.ListCheckRunsForRef(ctx, owner, repoName, ref, opt)
+		if err != nil {
+			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+		}
+
+		if runs.GetTotal() == 0 {
+			log.Info("No checks found, waiting for a bit to see if one appears")
+			time.Sleep(c.pendingRecheckTime)
+
+			runs, resp, err = c.client.Checks.ListCheckRunsForRef(ctx, owner, repoName, ref, opt)
+			if err != nil {
+				return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+			}
+
+			if runs.GetTotal() == 0 {
+				log.Debug("No checks found after waiting, assuming success")
+				return CIStatusPassed, nil
+			}
+		}
+
+		for _, checkRun := range runs.CheckRuns {
+			if checkRun.GetStatus() != "completed" {
+				continue
+			}
+
+			switch checkRun.GetConclusion() {
+			case "success":
+				status = CIStatusPassed
+			case "failure":
+				return CIStatusFailed, nil
+			default:
+				continue
+			}
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+
+		opt.Page = resp.NextPage
+	}
+
+	return status, nil
+}
+
+func (c GHClient) getCombinedStatus(ctx context.Context, owner, repoName string, ref string) (CIStatus, error) {
 	status, _, err := c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, nil)
 	if err != nil {
 		return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
@@ -191,7 +249,7 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref s
 		// check could take a while to be created (think a webhook to a CI
 		// system that takes a while to start a build). So we can wait a bit
 		// and then check again.
-		if len(status.Statuses) == 0 {
+		if len(status.Statuses) == 0 && status.GetTotalCount() == 0 {
 			log.Infof("No statuses found, waiting %s to see if one appears", c.pendingRecheckTime)
 			time.Sleep(c.pendingRecheckTime)
 
@@ -220,6 +278,24 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName string, ref s
 	}
 
 	return CIStatusUnknown, nil
+}
+
+func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
+	status, err := c.getCIChecksResult(ctx, owner, repoName, ref)
+	if err != nil {
+		return CIStatusUnknown, fmt.Errorf("failed to get CI status for checks: %w", err)
+	}
+
+	if status != CIStatusPassed {
+		return status, nil
+	}
+
+	status, err = c.getCombinedStatus(ctx, owner, repoName, ref)
+	if err != nil {
+		return CIStatusUnknown, fmt.Errorf("failed to get CI status for statuses: %w", err)
+	}
+
+	return status, nil
 }
 
 func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check string) (CIStatus, error) {
