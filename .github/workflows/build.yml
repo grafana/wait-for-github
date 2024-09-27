@@ -6,6 +6,12 @@ permissions:
 
 on:
   pull_request:
+    types:
+      - edited
+      - opened
+      - ready_for_review
+      - synchronize
+
   push:
     branches:
       - main
@@ -15,6 +21,8 @@ on:
       - "**/*.go"
       - Dockerfile
       - .github/workflows/build.yml
+
+  merge_group:
 
 jobs:
   main:
@@ -29,7 +37,11 @@ jobs:
       - name: Build Docker image
         uses: grafana/shared-workflows/actions/build-push-to-dockerhub@main
         with:
-          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
           tags: |
-            "latest"
-          repository: "grafana/wait-for-github"
+            # tag with branch name for `main`
+            type=ref,event=branch,enable={{is_default_branch}}
+            # tag with semver, and `latest`
+            type=ref,event=tag
+          repository: grafana/wait-for-github

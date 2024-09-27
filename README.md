@@ -74,7 +74,6 @@ This repository also contains a GitHub action definition. You can add this as a
 step to your workflow to sync running steps after CI has finished or a PR has
 been merged.
 
-
 ### Action parameters
 
 #### `ref`
@@ -85,7 +84,7 @@ been merged.
 
 **Required**. What to wait for. Valid values are `"ci"` or `"pr"`.
 
-- `"ci"`: Waits for the CI to finish. 
+- `"ci"`: Waits for the CI to finish.
 - `"pr"`: Waits for the PR to be merged.
 
 #### `app-id`, `app-private-key`, `app-installation-id`
@@ -113,7 +112,7 @@ GitHub repo owner. Optional. Default is the current repository's owner,
 
 #### `repo`
 
-GitHub repo name. Optional. Default is the current repository, 
+GitHub repo name. Optional. Default is the current repository,
 `${{ github.event.repository.name }}`.
 
 #### `token`
@@ -139,10 +138,10 @@ on:
       - main
 
 permissions:
-   checks: read
-   contents: read
-   pull-requests: write
-   statuses: read
+  checks: read
+  contents: read
+  pull-requests: write
+  statuses: read
 
 jobs:
   wait-for-checks:
@@ -177,6 +176,8 @@ responsive!
 
 ## Versioning
 
-As of now, the project is not versioned. We recommend that you use the `latest`
-tag. We'll _try_ to keep compatibility but there are no guarantees until we do
-start using semantic versioning.
+`wait-for-github` follows [Semantic Versioning]. Breaking changes will result in
+a major version bump, new features will result in a minor version bump, and bug
+fixes will result in a patch version bump.
+
+[Semantic Versioning]: https://semver.org/

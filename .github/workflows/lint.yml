@@ -1,14 +1,22 @@
-name: golangci-lint
+name: lint
 
 on:
   pull_request:
+    types:
+      - edited
+      - opened
+      - ready_for_review
+      - synchronize
+
+  merge_group:
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  golangci:
+  lint:
     name: lint
     runs-on: ubuntu-latest
     steps:
@@ -22,3 +30,7 @@ jobs:
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@aaa42aa0628b4ae2578232a66b541047968fac86 # v6.1.0
+
+      - name: lint PR title / commit message
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        uses: grafana/shared-workflows/actions/lint-pr-title@90e72fd7b35f5d30696313aeb736a13a15eb82ad # lint-pr-title-v1.0.0
