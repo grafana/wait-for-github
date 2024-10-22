@@ -1,13 +1,14 @@
 module github.com/grafana/wait-for-github
 
 go 1.22.5
+toolchain go1.23.2
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.11.0
 	github.com/google/go-github/v52 v52.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-retryablehttp v0.7.7
-	github.com/migueleliasweb/go-github-mock v1.0.1
+	github.com/migueleliasweb/go-github-mock v1.1.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.27.5
