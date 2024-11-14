@@ -39,23 +39,45 @@ inputs:
   checks-to-wait-for:
     description: 'The comma-separated names of the checks to wait for. Only used when wait-for is "ci"'
     required: false
+
 runs:
-  using: "docker"
-  image: "Dockerfile"
-  env:
-    GITHUB_TOKEN: ${{ inputs.token }}
-    GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
-    GITHUB_APP_ID: ${{ inputs.app-id }}
-    GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
-    GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
-  args:
-    - --log-level
-    - debug
-    - --timeout
-    - ${{ inputs.timeout }}
-    - --recheck-interval
-    - ${{ inputs.interval }}
-    - ${{ inputs.wait-for }}
-    - ${{ inputs.owner }}
-    - ${{ inputs.repo }}
-    - ${{ inputs.ref }}
+  using: composite
+
+  steps:
+    - name: Check repository out
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      env:
+        action_repo: ${{ github.action_repository }}
+        action_ref: ${{ github.action_ref }}
+      with:
+        path: ${{ github.workspace }}/action-checkout
+        repository: ${{ env.action_repo }}
+        ref: ${{ env.action_ref }}
+
+    - name: Set up Go
+      uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+      with:
+        go-version-file: ${{ github.workspace }}/action-checkout/go.mod
+
+    - name: Run
+      shell: sh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
+        GITHUB_APP_ID: ${{ inputs.app-id }}
+        GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
+        GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
+      run: |
+        cd "${{ github.workspace }}/action-checkout"
+
+        go run github.com/grafana/wait-for-github/cmd/wait-for-github \
+           --log-level \
+           debug \
+           --timeout \
+           ${{ inputs.timeout }} \
+           --recheck-interval \
+           ${{ inputs.interval }} \
+           ${{ inputs.wait-for }} \
+           ${{ inputs.owner }} \
+           ${{ inputs.repo }} \
+           ${{ inputs.ref }}
