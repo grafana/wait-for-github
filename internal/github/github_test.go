@@ -19,6 +19,7 @@ package github
 import (
 	"context"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
+	"github.com/shurcooL/graphql"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 )
@@ -103,9 +105,9 @@ func TestNewGithubClientWithAppAuthentication(t *testing.T) {
 	require.IsTypef(t, &httpcache.Transport{}, nestedTransport.Client.HTTPClient.Transport, "Returned client transport is not a caching transport (is %T)", nestedTransport.Client.HTTPClient.Transport)
 }
 
-// newClientFromMock returns a new GHClient whose transport is configured to use
+// newClientFromMock returns a new REST & GraphQL GHClient whose transports are configured to use
 // the provided mockClient.
-func newClientFromMock(t *testing.T, mockClient *http.Client) *GHClient {
+func newClientFromMock(t *testing.T, mockClient *http.Client, graphQLURL string) *GHClient {
 	t.Helper()
 
 	// descend through the layers of transports to the bottom-most one, which is
@@ -120,8 +122,9 @@ func newClientFromMock(t *testing.T, mockClient *http.Client) *GHClient {
 	httpClient := &http.Client{Transport: transport}
 
 	return &GHClient{
-		client:  github.NewClient(httpClient),
-		pendingRecheckTime: 0 * time.Second,
+		client:             github.NewClient(httpClient),
+		graphQLClient:      graphql.NewClient(graphQLURL, httpClient),
+		pendingRecheckTime: 0,
 	}
 }
 
@@ -145,9 +148,28 @@ func TestResponsesAreRetried(t *testing.T) {
 		),
 	)
 
-	ghclient := newClientFromMock(t, mockClient)
+	ghclient := newClientFromMock(t, mockClient, "")
 	_, _, err := ghclient.client.PullRequests.Get(context.Background(), "owner", "repo", 1)
 
+	require.Error(t, err)
+	require.Equal(t, 5, retryCount)
+}
+
+// Same as TestResponsesAreRetried but for GraphQL calls
+func TestGraphQLRetry(t *testing.T) {
+	retryCount := 0
+
+	mockServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			retryCount++
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		}))
+	defer mockServer.Close()
+
+	mockClient := &http.Client{Transport: http.DefaultTransport}
+	ghClient := newClientFromMock(t, mockClient, mockServer.URL)
+
+	_, err := ghClient.GetCIStatus(context.Background(), "owner", "repo", "ref")
 	require.Error(t, err)
 	require.Equal(t, 5, retryCount)
 }
@@ -198,7 +220,7 @@ func TestResponsesAreCached(t *testing.T) {
 		),
 	)
 
-	ghclient := newClientFromMock(t, mockClient)
+	ghclient := newClientFromMock(t, mockClient, "")
 
 	sha, closed, mergedTs, err := ghclient.IsPRMergedOrClosed(context.Background(), "owner", "repo", 1)
 	require.NoError(t, err)
@@ -252,9 +274,14 @@ func errorReturningHandler(t *testing.T, _ mock.EndpointPattern) mock.MockBacken
 func newErrorReturningClient(t *testing.T) *GHClient {
 	t.Helper()
 
-	return newClientFromMock(t, mock.NewMockedHTTPClient(
-		errorReturningHandler(t, mock.GetReposCommitsCheckRunsByOwnerByRepoByRef),
-	))
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}))
+
+	return &GHClient{
+		client:        github.NewClient(nil),
+		graphQLClient: graphql.NewClient(mockServer.URL, http.DefaultClient),
+	}
 }
 
 func TestIsPRMergedOrClosed_Success(t *testing.T) {
@@ -275,7 +302,7 @@ func TestIsPRMergedOrClosed_Success(t *testing.T) {
 		),
 	)
 
-	ghClient := newClientFromMock(t, mockedHTTPClient)
+	ghClient := newClientFromMock(t, mockedHTTPClient, "")
 	sha, closed, mergedAt, err := ghClient.IsPRMergedOrClosed(ctx, "owner", "repo", 1)
 
 	require.NoError(t, err)
@@ -297,201 +324,324 @@ func TestIsPRMergedOrClosed_Error(t *testing.T) {
 func TestGetCIStatus(t *testing.T) {
 	tests := []struct {
 		name           string
-		checks         []*github.CheckRun
-		checks2        []*github.CheckRun
-		status         *github.CombinedStatus
-		status2        *github.CombinedStatus
+		mockGraphQL    string
 		expectedStatus CIStatus
 	}{
 		{
-			name: "success",
-			status: &github.CombinedStatus{
-				State:      github.String("success"),
-				TotalCount: github.Int(1),
-			},
+			name: "success with only checks",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "SUCCESS",
+								"contexts": {
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"conclusion": "SUCCESS"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
 			expectedStatus: CIStatusPassed,
 		},
 		{
-			name: "pending",
-			status: &github.CombinedStatus{
-				State: github.String("pending"),
-				Statuses: []*github.RepoStatus{
-					{
-						State: github.String("pending"),
-					},
-				},
-				TotalCount: github.Int(1),
-			},
-			expectedStatus: CIStatusPending,
-		},
-		{
-			name: "pending (no statuses)",
-			status: &github.CombinedStatus{
-				State:      github.String("pending"),
-				TotalCount: github.Int(0),
-			},
-			status2: &github.CombinedStatus{
-				State:      github.String("pending"),
-				TotalCount: github.Int(0),
-			},
+			name: "success with only statuses",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "SUCCESS",
+								"contexts": {
+									"nodes": [
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "SUCCESS"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
 			expectedStatus: CIStatusPassed,
 		},
 		{
-			name: "pending (no status then pass)",
-			status: &github.CombinedStatus{
-				State:      github.String("pending"),
-				TotalCount: github.Int(0),
-			},
-			status2: &github.CombinedStatus{
-				State:      github.String("success"),
-				TotalCount: github.Int(1),
-			},
-			expectedStatus: CIStatusUnknown,
+			name: "success with checks and statuses",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "SUCCESS",
+								"contexts": {
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"conclusion": "SUCCESS"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "SUCCESS"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			expectedStatus: CIStatusPassed,
 		},
 		{
-			name: "pending (no status then pending but w/status this time)",
-			status: &github.CombinedStatus{
-				State: github.String("pending"),
-				Statuses: []*github.RepoStatus{
-					{
-						State: github.String("somecheck"),
-					},
-				},
-				TotalCount: github.Int(1),
-			},
+			name: "failed check",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"conclusion": "FAILURE"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "SUCCESS"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "failed status",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"conclusion": "SUCCESS"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "FAILURE"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "pending without checks or statuses",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "PENDING",
+								"contexts": {
+									"nodes": [],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
 			expectedStatus: CIStatusPending,
 		},
 		{
-			name: "status pending, check failed",
-			checks: []*github.CheckRun{
-				{
-					Status:     github.String("completed"),
-					Conclusion: github.String("failure"),
-				},
-			},
-			status: &github.CombinedStatus{
-				State:      github.String("pending"),
-				TotalCount: github.Int(0),
-			},
-			status2: &github.CombinedStatus{
-				State:      github.String("pending"),
-				TotalCount: github.Int(0),
-			},
-			expectedStatus: CIStatusFailed,
-		},
-		{
-			name: "check failed, status passed",
-			checks: []*github.CheckRun{
-				{
-					Status:     github.String("completed"),
-					Conclusion: github.String("failure"),
-				},
-			},
-			status: &github.CombinedStatus{
-				State:      github.String("success"),
-				TotalCount: github.Int(1),
-			},
-			expectedStatus: CIStatusFailed,
-		},
-		{
-			name: "pending check, status passed",
-			checks: []*github.CheckRun{
-				{
-					Status: github.String("queued"),
-				},
-			},
-			status: &github.CombinedStatus{
-				State:      github.String("success"),
-				TotalCount: github.Int(1),
-			},
+			name: "pending with checks and statuses",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "PENDING",
+								"contexts": {
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"conclusion": "PENDING"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "PENDING"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
 			expectedStatus: CIStatusPending,
 		},
 		{
-			name:   "no checks, then failed, status passed",
-			checks: []*github.CheckRun{},
-			checks2: []*github.CheckRun{
-				{
-					Status:     github.String("completed"),
-					Conclusion: github.String("failure"),
-				},
-			},
-			status: &github.CombinedStatus{
-				State:      github.String("success"),
-				TotalCount: github.Int(1),
-			},
-			expectedStatus: CIStatusFailed,
+			name: "no data",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": null
+					}
+				}
+			}
+            `,
+			expectedStatus: CIStatusPassed,
 		},
 		{
-			name:   "no checks, then passed, no status, then passed",
-			checks: []*github.CheckRun{},
-			checks2: []*github.CheckRun{
-				{
-					Status:     github.String("completed"),
-					Conclusion: github.String("success"),
-				},
-			},
-			status: &github.CombinedStatus{
-				State:      github.String("pending"),
-				TotalCount: github.Int(0),
-			},
-			status2: &github.CombinedStatus{
-				State:      github.String("success"),
-				TotalCount: github.Int(1),
-			},
-			// For status which change from no result to anything else, we
-			// return unknown to get called again on a subsequent iteration.
-			expectedStatus: CIStatusUnknown,
+			name: "no CI",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": null
+						}
+					}
+				}
+			}
+            `,
+			expectedStatus: CIStatusPassed,
 		},
 		{
-			name: "failure",
-			status: &github.CombinedStatus{
-				State:      github.String("failure"),
-				TotalCount: github.Int(1),
-			},
-			expectedStatus: CIStatusFailed,
-		},
-		{
-			name: "unknown",
-			status: &github.CombinedStatus{
-				State:      github.String("unknown"),
-				TotalCount: github.Int(1),
-			},
+			name: "unknown status",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "INVALID_STATE",
+								"contexts": {
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "test-check",
+											"conclusion": "invalid"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "test-status",
+											"state": "unknown"
+										}
+									],
+									"pageInfo": { "hasNextPage": false, "endCursor": null }
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
 			expectedStatus: CIStatusUnknown,
 		},
 	}
 
 	for _, tt := range tests {
-		tt := tt
-
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			ctx := context.Background()
+			mockServer := httptest.NewServer(
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method != "POST" || r.URL.Path != "/graphql" {
+						http.NotFound(w, r)
+						return
+					}
 
-			mockedHTTPClient := mock.NewMockedHTTPClient(
-				mock.WithRequestMatch(
-					mock.GetReposCommitsCheckRunsByOwnerByRepoByRef,
-					&github.ListCheckRunsResults{
-						Total:     github.Int(len(tt.checks)),
-						CheckRuns: tt.checks,
-					},
-					&github.ListCheckRunsResults{
-						Total:     github.Int(len(tt.checks2)),
-						CheckRuns: tt.checks2,
-					},
-				),
-				mock.WithRequestMatch(
-					mock.GetReposCommitsStatusByOwnerByRepoByRef,
-					tt.status,
-					tt.status2,
-				),
-			)
+					w.Header().Set("Content-Type", "application/json")
+					_, _ = w.Write([]byte(tt.mockGraphQL))
+				}))
+			defer mockServer.Close()
 
-			ghClient := newClientFromMock(t, mockedHTTPClient)
-			result, err := ghClient.GetCIStatus(ctx, "owner", "repo", "abcdef12345")
+			graphQLClient := graphql.NewClient(mockServer.URL+"/graphql", http.DefaultClient)
 
+			ghClient := GHClient{
+				client:             nil,
+				graphQLClient:      graphQLClient,
+				pendingRecheckTime: 1 * time.Second,
+			}
+
+			require.NotNil(t, ghClient.graphQLClient, "graphQLClient should not be nil")
+
+			status, err := ghClient.GetCIStatus(context.Background(), "owner", "repo", "abcdef12345")
 			require.NoError(t, err)
-			require.Equalf(t, tt.expectedStatus, result, "expected %s, got %s", tt.expectedStatus, result)
+			require.Equal(t, tt.expectedStatus, status)
 		})
 	}
 }
@@ -890,7 +1040,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				),
 			)
 
-			ghClient := newClientFromMock(t, mockedHTTPClient)
+			ghClient := newClientFromMock(t, mockedHTTPClient, "")
 			status, awaiting, err := ghClient.GetCIStatusForChecks(ctx, "owner", "repo", "abcdef12345", tt.checksToLookFor)
 
 			require.NoError(t, err)
@@ -926,7 +1076,7 @@ func TestGetCIStatusForChecks_ErrorListStatuses(t *testing.T) {
 		errorReturningHandler(t, mock.GetReposCommitsStatusesByOwnerByRepoByRef),
 	)
 
-	ghClient := newClientFromMock(t, mockedHTTPClient)
+	ghClient := newClientFromMock(t, mockedHTTPClient, "")
 
 	_, _, err := ghClient.GetCIStatusForChecks(ctx, "owner", "repo", "abcdef12345", []string{"check1"})
 	require.Error(t, err)
@@ -949,7 +1099,7 @@ func TestGetPRHeadSHA(t *testing.T) {
 		),
 	)
 
-	ghClient := newClientFromMock(t, mockedHTTPClient)
+	ghClient := newClientFromMock(t, mockedHTTPClient, "")
 
 	sha, err := ghClient.GetPRHeadSHA(ctx, "owner", "repo", 1)
 	require.NoError(t, err)

@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v52/github"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/shurcooL/graphql"
 	"golang.org/x/oauth2"
 
 	log "github.com/sirupsen/logrus"
@@ -62,7 +64,39 @@ type AuthInfo struct {
 
 type GHClient struct {
 	client             *github.Client
+	graphQLClient      *graphql.Client
 	pendingRecheckTime time.Duration
+}
+
+type PageInfo struct {
+	EndCursor   *string
+	HasNextPage bool
+}
+
+type CheckRun struct {
+	Name       string
+	Conclusion string
+}
+
+type StatusContext struct {
+	Context string
+	State   string
+}
+
+type RollupContextNode struct {
+	Typename      string        `graphql:"__typename"`
+	CheckRun      CheckRun      `graphql:"... on CheckRun"`
+	StatusContext StatusContext `graphql:"... on StatusContext"`
+}
+
+type RollupContexts struct {
+	Nodes    []RollupContextNode
+	PageInfo PageInfo
+}
+
+type StatusCheckRollup struct {
+	State    string
+	Contexts RollupContexts `graphql:"contexts(first: 100, after: $cursor)"`
 }
 
 func NewGithubClient(ctx context.Context, authInfo AuthInfo, pendingRecheckTime time.Duration) (GHClient, error) {
@@ -95,9 +129,15 @@ func AuthenticateWithToken(ctx context.Context, token string, pendingRecheckTime
 	)
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: cachingRetryableTransport()})
 	httpClient := oauth2.NewClient(ctx, src)
-	githubClient := github.NewClient(httpClient)
 
-	return GHClient{client: githubClient, pendingRecheckTime: pendingRecheckTime}
+	restClient := github.NewClient(httpClient)
+	graphQLClient := graphql.NewClient("https://api.github.com/graphql", httpClient)
+
+	return GHClient{
+		client:             restClient,
+		graphQLClient:      graphQLClient,
+		pendingRecheckTime: pendingRecheckTime,
+	}
 }
 
 // AuthenticateWithApp authenticates with a GitHub App
@@ -107,9 +147,16 @@ func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installa
 		return GHClient{}, fmt.Errorf("failed to create transport: %w", err)
 	}
 
-	githubClient := github.NewClient(&http.Client{Transport: itr})
+	httpClient := &http.Client{Transport: itr}
 
-	return GHClient{client: githubClient, pendingRecheckTime: pendingRecheckTime}, nil
+	restClient := github.NewClient(httpClient)
+	graphQLClient := graphql.NewClient("https://api.github.com/graphql", httpClient)
+
+	return GHClient{
+		client:             restClient,
+		graphQLClient:      graphQLClient,
+		pendingRecheckTime: pendingRecheckTime,
+	}, nil
 }
 
 func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, int64, error) {
@@ -164,138 +211,107 @@ func (c CIStatus) String() string {
 	}
 }
 
-func (c GHClient) getCIChecksResult(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
-	listOptions := github.ListOptions{
-		PerPage: 100,
+func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
+	var query struct {
+		Repository struct {
+			Object struct {
+				Commit struct {
+					StatusCheckRollup *StatusCheckRollup `graphql:"statusCheckRollup"`
+				} `graphql:"... on Commit"`
+			} `graphql:"object(expression: $ref)"`
+		} `graphql:"repository(owner: $owner, name: $repository)"`
 	}
 
-	opt := &github.ListCheckRunsOptions{
-		ListOptions: listOptions,
-		Filter:      github.String("latest"),
+	vars := map[string]interface{}{
+		"owner":      graphql.String(owner),
+		"repository": graphql.String(repoName),
+		"ref":        graphql.String(ref),
+		"cursor":     (*graphql.String)(nil),
 	}
 
-	status := CIStatusPending
+	hasChecks := false
+	hasStatuses := false
+	retried := false
 
 	for {
-		runs, resp, err := c.client.Checks.ListCheckRunsForRef(ctx, owner, repoName, ref, opt)
+		err := c.graphQLClient.Query(ctx, &query, vars)
 		if err != nil {
 			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
 		}
 
-		if runs.GetTotal() == 0 {
-			log.Info("No checks found, waiting for a bit to see if one appears")
+		rollup := query.Repository.Object.Commit.StatusCheckRollup
+		if rollup == nil {
+			return CIStatusPassed, nil
+		}
+
+		isSuccess := strings.ToLower(rollup.State) == "success"
+		isFailure := strings.ToLower(rollup.State) == "failure"
+		isPending := strings.ToLower(rollup.State) == "pending"
+
+		// return early if all checks and statuses are successful. no need to evaluate individual nodes in the response.
+		if isSuccess {
+			return CIStatusPassed, nil
+		}
+
+		hasChecks = false
+		hasStatuses = false
+		failedNodes := []string{}
+
+		for _, node := range rollup.Contexts.Nodes {
+			isCheckFailure := strings.ToLower(node.CheckRun.Conclusion) == "failure"
+			isStatusFailure := strings.ToLower(node.StatusContext.State) == "failure"
+			hasStatusContext := node.StatusContext.Context != "" && node.StatusContext.State != ""
+
+			switch node.Typename {
+			case "CheckRun":
+				hasChecks = true
+				if isCheckFailure {
+					failedNodes = append(failedNodes, fmt.Sprintf("CheckRun '%s' failed", node.CheckRun.Name))
+				}
+			case "StatusContext":
+				if hasStatusContext {
+					hasStatuses = true
+				}
+				if isStatusFailure {
+					failedNodes = append(failedNodes, fmt.Sprintf("StatusContext '%s' failed", node.StatusContext.Context))
+				}
+			}
+		}
+
+		if rollup.Contexts.PageInfo.HasNextPage {
+			vars["cursor"] = graphql.String(*rollup.Contexts.PageInfo.EndCursor)
+			continue
+		}
+
+		if (!hasChecks || !hasStatuses) && !retried {
+			log.Infof("Did not find any checks and/or statuses. Retrying in %s to see if any appear", c.pendingRecheckTime)
 			time.Sleep(c.pendingRecheckTime)
-
-			runs, resp, err = c.client.Checks.ListCheckRunsForRef(ctx, owner, repoName, ref, opt)
-			if err != nil {
-				return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
-			}
-
-			if runs.GetTotal() == 0 {
-				log.Debug("No checks found after waiting, assuming success")
-				return CIStatusPassed, nil
-			}
+			retried = true
+			vars["cursor"] = (*graphql.String)(nil)
+			continue
 		}
 
-		for _, checkRun := range runs.CheckRuns {
-			if checkRun.GetStatus() != "completed" {
-				continue
-			}
-
-			switch checkRun.GetConclusion() {
-			case "success":
-				status = CIStatusPassed
-			case "failure":
-				return CIStatusFailed, nil
-			default:
-				continue
-			}
+		if isPending {
+			return CIStatusPending, nil
 		}
 
-		if resp.NextPage == 0 {
-			break
+		if isFailure {
+			log.Debug("Failed CI checks:")
+			for _, failure := range failedNodes {
+				log.Debug(failure)
+			}
+			return CIStatusFailed, nil
 		}
 
-		opt.Page = resp.NextPage
+		break
 	}
 
-	return status, nil
-}
-
-func (c GHClient) getCombinedStatus(ctx context.Context, owner, repoName string, ref string) (CIStatus, error) {
-	status, _, err := c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, nil)
-	if err != nil {
-		return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
-	}
-
-	switch status.GetState() {
-	case "success":
+	if !hasChecks && !hasStatuses {
+		log.Debug("No checks or statuses found after retry, assuming success")
 		return CIStatusPassed, nil
-	case "failure":
-		return CIStatusFailed, nil
-	case "pending":
-		// From the GitHub API docs
-		// (https://docs.github.com/en/rest/commits/statuses?apiVersion=2022-11-28#get-the-combined-status-for-a-specific-reference):
-		//
-		// > Additionally, a combined state is returned. The state is one of:
-		// > ...
-		// > pending *if there are no statuses* or a context is pending
-		// > ...
-		//
-		// (Emphasis ours.) This means that if there are no statuses, the
-		// combined status will be "pending". We need to check if there are
-		// statuses to determine if the status is actually pending. If there
-		// aren't any, we should consider this to be a success. But. A status
-		// check could take a while to be created (think a webhook to a CI
-		// system that takes a while to start a build). So we can wait a bit
-		// and then check again.
-		if len(status.Statuses) == 0 && status.GetTotalCount() == 0 {
-			log.Infof("No statuses found, waiting %s to see if one appears", c.pendingRecheckTime)
-			time.Sleep(c.pendingRecheckTime)
-
-			status, _, err = c.client.Repositories.GetCombinedStatus(ctx, owner, repoName, ref, nil)
-			if err != nil {
-				return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
-			}
-
-			state := status.GetState()
-
-			// Something changed - this will cause us to be called again.
-			if state != "pending" {
-				return CIStatusUnknown, nil
-			}
-
-			// Ok, cool, now we believe it's not going to get a status, so let's say it passed.
-			if len(status.Statuses) == 0 {
-				log.Debug("No statuses found after waiting, assuming success")
-				return CIStatusPassed, nil
-			}
-
-			// It's really pending
-		}
-
-		return CIStatusPending, nil
 	}
 
 	return CIStatusUnknown, nil
-}
-
-func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
-	status, err := c.getCIChecksResult(ctx, owner, repoName, ref)
-	if err != nil {
-		return CIStatusUnknown, fmt.Errorf("failed to get CI status for checks: %w", err)
-	}
-
-	if status != CIStatusPassed {
-		return status, nil
-	}
-
-	status, err = c.getCombinedStatus(ctx, owner, repoName, ref)
-	if err != nil {
-		return CIStatusUnknown, fmt.Errorf("failed to get CI status for statuses: %w", err)
-	}
-
-	return status, nil
 }
 
 func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check string) (CIStatus, error) {
