@@ -31,6 +31,21 @@ GLOBAL OPTIONS:
 Authentication is via either a GitHub personal access token or an app private
 key, ID and installtion ID.
 
+### Required Permissions
+
+The GitHub token or app needs the following permissions:
+
+- `checks:read` - Read check run status and conclusions for CI checks
+- `contents:read` - Access commit data through GitHub's GraphQL API when
+  checking CI status
+- `metadata:read` - Basic access to repository information and API endpoints
+- `pull-requests:read` - Check if PRs have been merged or closed
+- `statuses:read` - Read commit status checks when verifying CI completion
+
+If using a GitHub App, configure these permissions when setting up the app. If
+using a Personal Access Token (PAT), make sure to select these scopes when
+creating the token.
+
 ### Commands
 
 #### `pr`
