@@ -337,6 +337,8 @@ func TestGetCIStatus(t *testing.T) {
 							"statusCheckRollup": {
 								"state": "SUCCESS",
 								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 0,
 									"nodes": [
 										{
 											"__typename": "CheckRun",
@@ -432,10 +434,13 @@ func TestGetCIStatus(t *testing.T) {
 							"statusCheckRollup": {
 								"state": "FAILURE",
 								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
 									"nodes": [
 										{
 											"__typename": "CheckRun",
 											"name": "build",
+											"status": "COMPLETED",
 											"conclusion": "FAILURE"
 										},
 										{
@@ -467,10 +472,13 @@ func TestGetCIStatus(t *testing.T) {
 							"statusCheckRollup": {
 								"state": "FAILURE",
 								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
 									"nodes": [
 										{
 											"__typename": "CheckRun",
 											"name": "build",
+											"status": "COMPLETED",
 											"conclusion": "SUCCESS"
 										},
 										{
@@ -493,30 +501,6 @@ func TestGetCIStatus(t *testing.T) {
 			expectedStatus: CIStatusFailed,
 		},
 		{
-			name: "pending without checks or statuses",
-			mockGraphQL: `
-            {
-				"data": {
-					"repository": {
-						"object": {
-							"statusCheckRollup": {
-								"state": "PENDING",
-								"contexts": {
-									"nodes": [],
-									"pageInfo": {
-										"hasNextPage": false,
-										"endCursor": null
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-            `,
-			expectedStatus: CIStatusPending,
-		},
-		{
 			name: "pending with checks and statuses",
 			mockGraphQL: `
             {
@@ -526,10 +510,13 @@ func TestGetCIStatus(t *testing.T) {
 							"statusCheckRollup": {
 								"state": "PENDING",
 								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
 									"nodes": [
 										{
 											"__typename": "CheckRun",
 											"name": "build",
+											"status": "PENDING",
 											"conclusion": "PENDING"
 										},
 										{
@@ -589,10 +576,13 @@ func TestGetCIStatus(t *testing.T) {
 							"statusCheckRollup": {
 								"state": "INVALID_STATE",
 								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
 									"nodes": [
 										{
 											"__typename": "CheckRun",
 											"name": "test-check",
+											"status": "INVALID",
 											"conclusion": "invalid"
 										},
 										{
@@ -634,7 +624,7 @@ func TestGetCIStatus(t *testing.T) {
 			ghClient := GHClient{
 				client:             nil,
 				graphQLClient:      graphQLClient,
-				pendingRecheckTime: 1 * time.Second,
+				pendingRecheckTime: 1 * time.Millisecond,
 			}
 
 			require.NotNil(t, ghClient.graphQLClient, "graphQLClient should not be nil")

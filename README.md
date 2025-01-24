@@ -83,6 +83,35 @@ OPTIONS:
 This command will wait for CI checks to finish for a ref or PR URL. If they finish
 successfully it will exit `0` and otherwise it will exit `1`.
 
+To wait for a specific check to finish, use the `--check` flag. See below for
+details of the `ci list` subcommand, which can help determine valid values for
+this flag. This flag can be given multiple times to wait for multiple checks. To
+wait for the result of a GitHub Actions workflow, pass the base name of the
+workflow as the check name. For example, `.github/workflows/lint.yml` would be
+`lint`. To wait for [commit statuses][statuses], use the name of the status as
+shown in the GitHub web UI.
+
+##### `ci list`
+
+The `ci list` subcommand can be used to list all CI checks and their current status:
+
+```console
+$ wait-for-github ci list https://github.com/grafana/wait-for-github/pull/123
+╒═══════════════════════╤═══════════╤═════════╕
+│         NAME          │   TYPE    │ STATUS  │
+╞═══════════════════════╪═══════════╪═════════╡
+│ **test**              │ Status    │ Passed  │
+│ linters / **black**   │ Action    │ Failed  │
+│ **deploy**            │ Check Run │ Pending │
+╘═══════════════════════╧═══════════╧═════════╛
+```
+
+This is useful to see what checks are available to pass to the `--check` flag.
+Denoted by `**` in the output above, part of the check name will be in bold.
+These names can be used as values for the `ci --check` flag.
+
+[statuses]: https://docs.github.com/en/rest/commits/statuses
+
 ## Action
 
 This repository also contains a GitHub action definition. You can add this as a
@@ -105,7 +134,8 @@ been merged.
 #### `app-id`, `app-private-key`, `app-installation-id`
 
 The GitHub Application ID, App Private Key and App Installation ID. Optional.
-Use in a case of the authentication with a GitHub App (as an alternative to GitHub Token auth).
+Use in a case of the authentication with a GitHub App (as an alternative to
+GitHub Token auth).
 
 #### `checks-to-wait-for`
 
@@ -169,6 +199,7 @@ jobs:
           wait-for: ci
           checks-to-wait-for: atlantis/plan
           ref: ${{ github.event.pull_request.head.sha }}
+
       - name: Comment on check failure
         if: failure()
         run: |
@@ -176,6 +207,7 @@ jobs:
         env:
           PR_URL: ${{github.event.pull_request.html_url}}
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
       - name: Do something if the plan succeeded
         run: |
           gh pr review --comment -b "Yay I'm so happy that the plan succeeded!" "$PR_URL"

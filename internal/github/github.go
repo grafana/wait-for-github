@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
+	"github.com/fatih/color"
 	"github.com/google/go-github/v52/github"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
@@ -49,6 +51,10 @@ type CheckCIStatusForChecks interface {
 	GetCIStatusForChecks(ctx context.Context, owner, repo string, commitHash string, checkNames []string) (CIStatus, []string, error)
 }
 
+type GetDetailedCIStatus interface {
+	GetDetailedCIStatus(ctx context.Context, owner, repo string, commitHash string) ([]CICheckStatus, error)
+}
+
 type CheckCIStatus interface {
 	CheckOverallCIStatus
 	CheckCIStatusForChecks
@@ -68,19 +74,127 @@ type GHClient struct {
 	pendingRecheckTime time.Duration
 }
 
+type CIStatus uint
+
+const (
+	CIStatusPassed CIStatus = iota
+	CIStatusFailed
+	CIStatusPending
+	CIStatusUnknown
+	CIStatusSkipped
+)
+
+func (c CIStatus) String() string {
+	switch c {
+	case CIStatusPassed:
+		return "passed"
+	case CIStatusFailed:
+		return "failed"
+	case CIStatusPending:
+		return "pending"
+	case CIStatusUnknown:
+		return "unknown"
+	case CIStatusSkipped:
+		return "skipped"
+	default:
+		return "unknown"
+	}
+}
+
+type CICheckStatus interface {
+	fmt.Stringer
+	Outcome() CIStatus
+	Type() string
+}
+
 type PageInfo struct {
 	EndCursor   *string
 	HasNextPage bool
 }
 
+type WorkflowInfo struct {
+	Name string
+}
+
+type AppInfo struct {
+	Name string
+}
+
+type CheckSuiteInfo struct {
+	App         AppInfo
+	WorkflowRun struct {
+		Workflow WorkflowInfo
+	}
+}
+
 type CheckRun struct {
 	Name       string
+	Status     string
 	Conclusion string
+	CheckSuite CheckSuiteInfo
+}
+
+func (c CheckRun) String() string {
+	boldName := color.New(color.Bold).Sprint(c.Name)
+	if c.CheckSuite.WorkflowRun.Workflow.Name == "" {
+		return boldName
+	}
+
+	return fmt.Sprintf("%s / %s", c.CheckSuite.WorkflowRun.Workflow.Name, boldName)
+}
+
+func (c CheckRun) Outcome() CIStatus {
+	switch strings.ToLower(c.Status) {
+	case "completed":
+		switch strings.ToLower(c.Conclusion) {
+		case "success":
+			return CIStatusPassed
+		case "startup_failure":
+			return CIStatusFailed
+		case "failure":
+			return CIStatusFailed
+		case "skipped":
+			return CIStatusSkipped
+		default:
+			return CIStatusUnknown
+		}
+	default:
+		return CIStatusPending
+	}
+}
+
+func (c CheckRun) Type() string {
+	if c.CheckSuite.App.Name == "GitHub Actions" {
+		return "Action"
+	}
+
+	return "Check Run"
 }
 
 type StatusContext struct {
 	Context string
 	State   string
+}
+
+func (s StatusContext) String() string {
+	return color.New(color.Bold).Sprint(s.Context)
+}
+
+func (s StatusContext) Outcome() CIStatus {
+	switch strings.ToLower(s.State) {
+	case "success":
+		return CIStatusPassed
+	case "failure":
+		return CIStatusFailed
+	case "error":
+		return CIStatusFailed
+	default:
+		return CIStatusUnknown
+	}
+}
+
+func (s StatusContext) Type() string {
+	return "Status"
 }
 
 type RollupContextNode struct {
@@ -90,8 +204,10 @@ type RollupContextNode struct {
 }
 
 type RollupContexts struct {
-	Nodes    []RollupContextNode
-	PageInfo PageInfo
+	CheckRunCount      int
+	StatusContextCount int
+	Nodes              []RollupContextNode
+	PageInfo           PageInfo
 }
 
 type StatusCheckRollup struct {
@@ -187,31 +303,7 @@ func (c GHClient) GetPRHeadSHA(ctx context.Context, owner, repo string, prNumber
 	return pr.GetHead().GetSHA(), nil
 }
 
-type CIStatus uint
-
-const (
-	CIStatusPassed CIStatus = iota
-	CIStatusFailed
-	CIStatusPending
-	CIStatusUnknown
-)
-
-func (c CIStatus) String() string {
-	switch c {
-	case CIStatusPassed:
-		return "passed"
-	case CIStatusFailed:
-		return "failed"
-	case CIStatusPending:
-		return "pending"
-	case CIStatusUnknown:
-		return "unknown"
-	default:
-		return "unknown"
-	}
-}
-
-func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
+func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref string) (*StatusCheckRollup, []RollupContextNode, error) {
 	var query struct {
 		Repository struct {
 			Object struct {
@@ -229,86 +321,94 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) 
 		"cursor":     (*graphql.String)(nil),
 	}
 
-	hasChecks := false
-	hasStatuses := false
+	var allNodes []RollupContextNode
 	retried := false
 
+	var rollup *StatusCheckRollup
+
 	for {
-		err := c.graphQLClient.Query(ctx, &query, vars)
-		if err != nil {
-			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+		if err := c.graphQLClient.Query(ctx, &query, vars); err != nil {
+			return nil, nil, fmt.Errorf("failed to query GitHub: %w", err)
 		}
 
-		rollup := query.Repository.Object.Commit.StatusCheckRollup
-		if rollup == nil {
-			return CIStatusPassed, nil
+		if rollup = query.Repository.Object.Commit.StatusCheckRollup; rollup == nil {
+			return nil, allNodes, nil
 		}
 
-		isSuccess := strings.ToLower(rollup.State) == "success"
-		isFailure := strings.ToLower(rollup.State) == "failure"
-		isPending := strings.ToLower(rollup.State) == "pending"
+		contexts := rollup.Contexts
+		pageInfo := contexts.PageInfo
 
-		// return early if all checks and statuses are successful. no need to evaluate individual nodes in the response.
-		if isSuccess {
-			return CIStatusPassed, nil
+		allNodes = append(allNodes, contexts.Nodes...)
+
+		if !pageInfo.HasNextPage {
+			if (!hasChecksOrStatuses(rollup)) && !retried {
+				log.Infof("Did not find any checks and/or statuses. Retrying in %s to see if any appear", c.pendingRecheckTime)
+				time.Sleep(c.pendingRecheckTime)
+				retried = true
+				vars["cursor"] = (*graphql.String)(nil)
+				allNodes = nil
+				continue
+			}
+
+			break
 		}
 
-		hasChecks = false
-		hasStatuses = false
-		failedNodes := []string{}
+		vars["cursor"] = graphql.String(*pageInfo.EndCursor)
+	}
 
-		for _, node := range rollup.Contexts.Nodes {
+	return rollup, allNodes, nil
+}
+
+func hasChecksOrStatuses(rollup *StatusCheckRollup) bool {
+	return rollup.Contexts.CheckRunCount > 0 || rollup.Contexts.StatusContextCount > 0
+}
+
+func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
+	rollup, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
+	if err != nil {
+		return CIStatusUnknown, err
+	}
+
+	if rollup == nil {
+		return CIStatusPassed, nil
+	}
+
+	isSuccess := strings.ToLower(rollup.State) == "success"
+	isFailure := strings.ToLower(rollup.State) == "failure"
+	isPending := strings.ToLower(rollup.State) == "pending"
+
+	// return early if all checks and statuses are successful. no need to evaluate individual nodes in the response.
+	if isSuccess {
+		return CIStatusPassed, nil
+	}
+
+	if !hasChecksOrStatuses(rollup) {
+		log.Debug("No checks or statuses found after retry, assuming success")
+		return CIStatusPassed, nil
+	}
+
+	if isPending {
+		return CIStatusPending, nil
+	}
+
+	if isFailure {
+		log.Debug("Failed CI checks:")
+		for _, node := range nodes {
 			isCheckFailure := strings.ToLower(node.CheckRun.Conclusion) == "failure"
 			isStatusFailure := strings.ToLower(node.StatusContext.State) == "failure"
-			hasStatusContext := node.StatusContext.Context != "" && node.StatusContext.State != ""
 
 			switch node.Typename {
 			case "CheckRun":
-				hasChecks = true
 				if isCheckFailure {
-					failedNodes = append(failedNodes, fmt.Sprintf("CheckRun '%s' failed", node.CheckRun.Name))
+					log.Debug(fmt.Sprintf("CheckRun '%s' failed", node.CheckRun.Name))
 				}
 			case "StatusContext":
-				if hasStatusContext {
-					hasStatuses = true
-				}
 				if isStatusFailure {
-					failedNodes = append(failedNodes, fmt.Sprintf("StatusContext '%s' failed", node.StatusContext.Context))
+					log.Debug(fmt.Sprintf("StatusContext '%s' failed", node.StatusContext.Context))
 				}
 			}
 		}
-
-		if rollup.Contexts.PageInfo.HasNextPage {
-			vars["cursor"] = graphql.String(*rollup.Contexts.PageInfo.EndCursor)
-			continue
-		}
-
-		if (!hasChecks || !hasStatuses) && !retried {
-			log.Infof("Did not find any checks and/or statuses. Retrying in %s to see if any appear", c.pendingRecheckTime)
-			time.Sleep(c.pendingRecheckTime)
-			retried = true
-			vars["cursor"] = (*graphql.String)(nil)
-			continue
-		}
-
-		if isPending {
-			return CIStatusPending, nil
-		}
-
-		if isFailure {
-			log.Debug("Failed CI checks:")
-			for _, failure := range failedNodes {
-				log.Debug(failure)
-			}
-			return CIStatusFailed, nil
-		}
-
-		break
-	}
-
-	if !hasChecks && !hasStatuses {
-		log.Debug("No checks or statuses found after retry, assuming success")
-		return CIStatusPassed, nil
+		return CIStatusFailed, nil
 	}
 
 	return CIStatusUnknown, nil
@@ -434,4 +534,29 @@ func (c GHClient) GetCIStatusForChecks(ctx context.Context, owner, repoName stri
 	}
 
 	return CIStatusPending, stillWaitingFor, nil
+}
+
+func (c GHClient) GetDetailedCIStatus(ctx context.Context, owner, repoName, ref string) ([]CICheckStatus, error) {
+	_, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	var allChecks []CICheckStatus
+	for _, node := range nodes {
+		switch node.Typename {
+		case "CheckRun":
+			allChecks = append(allChecks, node.CheckRun)
+		case "StatusContext":
+			if node.StatusContext.Context != "" && node.StatusContext.State != "" {
+				allChecks = append(allChecks, node.StatusContext)
+			}
+		}
+	}
+
+	slices.SortFunc(allChecks, func(a, b CICheckStatus) int {
+		return strings.Compare(a.String(), b.String())
+	})
+
+	return allChecks, nil
 }
