@@ -41,6 +41,10 @@ func (c *FakeCIStatusChecker) GetCIStatusForChecks(ctx context.Context, owner, r
 	return c.status, checkNames, c.err
 }
 
+func (c *FakeCIStatusChecker) GetDetailedCIStatus(ctx context.Context, owner, repo string, commitHash string) ([]github.CICheckStatus, error) {
+	return nil, c.err
+}
+
 func TestHandleCIStatus(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -90,6 +94,7 @@ func TestHandleCIStatus(t *testing.T) {
 		})
 	}
 }
+
 func TestCheckCIStatus(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -230,10 +235,11 @@ func TestParseCIArguments(t *testing.T) {
 			parentCliContext.App = cli.NewApp()
 			cliContext := cli.NewContext(nil, flagSet, parentCliContext)
 
-			got, err := parseCIArguments(cliContext)
+			got, err := parseCIArguments(cliContext, "ci")
 			if tt.wantErr != nil {
 				require.ErrorAs(t, err, &tt.wantErr)
 			}
+
 			require.Equal(t, tt.want, got)
 		})
 	}
@@ -259,6 +265,10 @@ func (c *UnknownCIStatusChecker) GetCIStatusForChecks(ctx context.Context, owner
 	}
 
 	return github.CIStatusPassed, checkNames, nil
+}
+
+func (c *UnknownCIStatusChecker) GetDetailedCIStatus(ctx context.Context, owner, repo string, commitHash string) ([]github.CICheckStatus, error) {
+	return nil, nil
 }
 
 func TestUnknownCIStatusRetries(t *testing.T) {

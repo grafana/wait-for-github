@@ -74,13 +74,17 @@ func extractRefFromPrURL(url string) (owner, repo, ref string) {
 	return owner, repo, ref
 }
 
-func parseCIArguments(c *cli.Context) (ciConfig, error) {
+func parseCIArguments(c *cli.Context, command string) (ciConfig, error) {
 	var owner, repo, ref string
 
-	switch {
+	log.Debugf("parseCIArguments: %+v, nArgs: %d", c.Args(), c.NArg())
+
+	args := c.Args()
+
+	switch nArgs := c.NArg(); nArgs {
 	// If a single argument is provided, it is expected to be either a commit URL or PR URL
-	case c.NArg() == 1:
-		url := c.Args().Get(0)
+	case 1:
+		url := args.Get(0)
 		// Try for a PR URL
 		owner, repo, ref = extractRefFromPrURL(url)
 		if len(ref) == 0 {
@@ -94,10 +98,10 @@ func parseCIArguments(c *cli.Context) (ciConfig, error) {
 		}
 
 	// If three arguments are provided, they are expected to be owner, repo, and ref
-	case c.NArg() == 3:
-		owner = c.Args().Get(0)
-		repo = c.Args().Get(1)
-		ref = c.Args().Get(2)
+	case 3:
+		owner = args.Get(0)
+		repo = args.Get(1)
+		ref = args.Get(2)
 	// Any other number of arguments is an error
 	default:
 		// If the number of arguments is not as expected, show the usage message and error out
@@ -105,7 +109,7 @@ func parseCIArguments(c *cli.Context) (ciConfig, error) {
 		// but it doesn't work, says "unknown command ci". So we go through the parent command.
 		lineage := c.Lineage()
 		parent := lineage[1]
-		err := cli.ShowCommandHelp(parent, "ci")
+		err := cli.ShowCommandHelp(parent, command)
 		if err != nil {
 			return ciConfig{}, err
 		}
@@ -203,25 +207,25 @@ func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus
 }
 
 func ciCommand(cfg *config) *cli.Command {
-	var ciConf ciConfig
-
 	return &cli.Command{
 		Name:      "ci",
 		Usage:     "Wait for CI to be finished",
 		ArgsUsage: "<https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]",
-		Before: func(c *cli.Context) error {
-			var err error
-			ciConf, err = parseCIArguments(c)
-
-			return err
-		},
 		Action: func(c *cli.Context) error {
+			ciConf, err := parseCIArguments(c, "ci")
+			if err != nil {
+				return err
+			}
+
 			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}
 
 			return checkCIStatus(c.Context, githubClient, cfg, &ciConf)
+		},
+		Subcommands: []*cli.Command{
+			ciListCommand(cfg),
 		},
 		Flags: []cli.Flag{
 			&cli.StringSliceFlag{
