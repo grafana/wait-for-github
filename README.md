@@ -35,6 +35,7 @@ key, ID and installtion ID.
 
 The GitHub token or app needs the following permissions:
 
+- `actions:read` - Read names of workflows which ran on a ref
 - `checks:read` - Read check run status and conclusions for CI checks
 - `contents:read` - Access commit data through GitHub's GraphQL API when
   checking CI status
