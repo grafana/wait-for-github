@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/utils"
@@ -125,10 +124,10 @@ func parseCIArguments(c *cli.Context, command string) (ciConfig, error) {
 	}, nil
 }
 
-func handleCIStatus(status github.CIStatus, recheckInterval time.Duration, url string) cli.ExitCoder {
+func handleCIStatus(status github.CIStatus, url string) cli.ExitCoder {
 	switch status {
 	case github.CIStatusUnknown:
-		log.Infof("CI status is unknown, rechecking in %s", recheckInterval)
+		log.Infof("CI status is unknown")
 	case github.CIStatusPending:
 	case github.CIStatusPassed:
 		return cli.Exit("CI successful", 0)
@@ -136,7 +135,7 @@ func handleCIStatus(status github.CIStatus, recheckInterval time.Duration, url s
 		return cli.Exit(fmt.Sprintf("CI failed. Please check CI on the following commit: %s", url), 1)
 	}
 
-	log.Infof("CI is not finished yet, rechecking in %s", recheckInterval)
+	log.Infof("CI is not finished yet")
 	return nil
 }
 
@@ -147,13 +146,13 @@ type checkAllCI struct {
 	ref          string
 }
 
-func (ci checkAllCI) Check(ctx context.Context, recheckInterval time.Duration) error {
+func (ci checkAllCI) Check(ctx context.Context) error {
 	status, err := ci.githubClient.GetCIStatus(ctx, ci.owner, ci.repo, ci.ref)
 	if err != nil {
 		return err
 	}
 
-	return handleCIStatus(status, recheckInterval, urlFor(ci.owner, ci.repo, ci.ref))
+	return handleCIStatus(status, urlFor(ci.owner, ci.repo, ci.ref))
 }
 
 type checkSpecificCI struct {
@@ -162,7 +161,7 @@ type checkSpecificCI struct {
 	checks []string
 }
 
-func (ci checkSpecificCI) Check(ctx context.Context, recheckInterval time.Duration) error {
+func (ci checkSpecificCI) Check(ctx context.Context) error {
 	var status github.CIStatus
 
 	status, interestingChecks, err := ci.githubClient.GetCIStatusForChecks(ctx, ci.owner, ci.repo, ci.ref, ci.checks)
@@ -177,10 +176,10 @@ func (ci checkSpecificCI) Check(ctx context.Context, recheckInterval time.Durati
 	// we didn't find any failed checks, and not all checks are finished, so
 	// we need to recheck
 	if status == github.CIStatusPending {
-		log.Infof("CI checks are not finished yet (still waiting for %s), rechecking in %s", strings.Join(interestingChecks, ", "), recheckInterval)
+		log.Infof("CI checks are not finished yet (still waiting for %s)", strings.Join(interestingChecks, ", "))
 	}
 
-	return handleCIStatus(status, recheckInterval, urlFor(ci.owner, ci.repo, ci.ref))
+	return handleCIStatus(status, urlFor(ci.owner, ci.repo, ci.ref))
 }
 
 func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus, cfg *config, ciConf *ciConfig) error {

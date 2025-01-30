@@ -15,7 +15,7 @@ type TestCheck struct {
 	fn func() error
 }
 
-func (t *TestCheck) Check(ctx context.Context, recheckInterval time.Duration) error {
+func (t *TestCheck) Check(ctx context.Context) error {
 	return t.fn()
 }
 
