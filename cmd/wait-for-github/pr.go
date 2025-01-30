@@ -23,7 +23,6 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/utils"
@@ -143,7 +142,7 @@ type prCheck struct {
 	githubClient checkMergedAndOverallCI
 }
 
-func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) error {
+func (pr prCheck) Check(ctx context.Context) error {
 	mergedCommit, closed, mergedAt, err := pr.githubClient.IsPRMergedOrClosed(ctx, pr.owner, pr.repo, pr.pr)
 	if err != nil {
 		return err
@@ -193,7 +192,7 @@ func (pr prCheck) Check(ctx context.Context, recheckInterval time.Duration) erro
 		return cli.Exit("CI failed", 1)
 	}
 
-	log.Infof("PR is not closed yet, rechecking in %s", recheckInterval)
+	log.Infof("PR is not closed yet")
 	return nil
 }
 

@@ -82,7 +82,7 @@ func TestHandleCIStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			output := handleCIStatus(tt.status, 1, tt.url)
+			output := handleCIStatus(tt.status, tt.url)
 
 			if tt.expectedExitCode == nil {
 				require.Nil(t, output)
