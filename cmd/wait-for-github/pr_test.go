@@ -174,7 +174,7 @@ func TestWriteCommitInfoFile(t *testing.T) {
 		},
 	}
 
-	err := prCheck.Check(context.TODO(), 1)
+	err := prCheck.Check(context.TODO())
 	var cliExitErr cli.ExitCoder
 	require.ErrorAs(t, err, &cliExitErr)
 	require.Equal(t, 0, cliExitErr.ExitCode())
@@ -218,7 +218,7 @@ func TestWriteCommitInfoFileError(t *testing.T) {
 		},
 	}
 
-	err := prCheck.Check(context.Background(), 1)
+	err := prCheck.Check(context.Background())
 	require.Error(t, err)
 }
 
