@@ -29,7 +29,7 @@ import (
 )
 
 type Check interface {
-	Check(ctx context.Context, recheckInterval time.Duration) error
+	Check(ctx context.Context) error
 }
 
 func RunUntilCancelledOrTimeout(ctx context.Context, check Check, interval time.Duration) error {
@@ -40,10 +40,12 @@ func RunUntilCancelledOrTimeout(ctx context.Context, check Check, interval time.
 	signal.Notify(signalChan, syscall.SIGINT)
 
 	for {
-		err := check.Check(ctx, interval)
+		err := check.Check(ctx)
 		if err != nil {
 			return err
 		}
+
+		log.Infof("Rechecking in %s", interval)
 
 		select {
 		case <-ticker.C:
