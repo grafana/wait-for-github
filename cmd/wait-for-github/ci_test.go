@@ -33,7 +33,7 @@ type FakeCIStatusChecker struct {
 	err    error
 }
 
-func (c *FakeCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (github.CIStatus, error) {
+func (c *FakeCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (github.CIStatus, error) {
 	return c.status, c.err
 }
 
@@ -99,6 +99,7 @@ func TestCheckCIStatus(t *testing.T) {
 	tests := []struct {
 		name             string
 		checks           []string
+		excludes         []string
 		status           github.CIStatus
 		err              error
 		recheckInterval  time.Duration
@@ -127,8 +128,24 @@ func TestCheckCIStatus(t *testing.T) {
 			expectedExitCode: &one,
 		},
 		{
+			name:             "Failed checks excluded",
+			checks:           []string{},
+			excludes:         []string{"failingCheck"},
+			status:           github.CIStatusPassed,
+			err:              cli.Exit("CI successful", 0),
+			expectedExitCode: &zero,
+		},
+		{
 			name:             "Specific checks fail",
 			checks:           []string{"check1", "check2"},
+			status:           github.CIStatusFailed,
+			err:              cli.Exit("CI failed", 1),
+			expectedExitCode: &one,
+		},
+		{
+			name:             "Specific checks fail, exclude ignored",
+			checks:           []string{"check1", "check2"},
+			excludes:         []string{"check1", "check2"},
 			status:           github.CIStatusFailed,
 			err:              cli.Exit("CI failed", 1),
 			expectedExitCode: &one,
@@ -160,10 +177,11 @@ func TestCheckCIStatus(t *testing.T) {
 				recheckInterval: 1,
 			}
 			ciConf := &ciConfig{
-				owner:  "owner",
-				repo:   "repo",
-				ref:    "ref",
-				checks: tt.checks,
+				excludes: tt.excludes,
+				owner:    "owner",
+				repo:     "repo",
+				ref:      "ref",
+				checks:   tt.checks,
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -249,7 +267,7 @@ type UnknownCIStatusChecker struct {
 	calls int
 }
 
-func (c *UnknownCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (github.CIStatus, error) {
+func (c *UnknownCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (github.CIStatus, error) {
 	c.calls++
 	if c.calls == 1 {
 		return github.CIStatusUnknown, nil

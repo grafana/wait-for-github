@@ -60,11 +60,12 @@ USAGE:
 
 OPTIONS:
    --commit-info-file value  Path to a file which the commit info will be written. The file will be overwritten if it already exists.
+   --exclude value, -x value [ --exclude value, -x value ]  Exclude the status of a specific CI check from failing the wait. By default, a failed status check will exit the pr wait command. [$GITHUB_CI_EXCLUDE]
    --help, -h                show help
 ```
 
 This command will wait for the given PR (URL or owner/repo/number) to be merged
-or closed. If merged, it will exit with code `0` (success) and if cloed without
+or closed. If merged, it will exit with code `0` (success) and if closed without
 being merged it will exit with code `1` (failure).
 
 #### `ci`
@@ -78,13 +79,15 @@ USAGE:
 
 OPTIONS:
    --check value, -c value [ --check value, -c value ]  Check the status of a specific CI check. By default, the status of all required checks is checked. [$GITHUB_CI_CHECKS]
+   --exclude value, -x value [ --exclude value, -x value ]  Exclude the status of a specific CI check. Argument ignored if checks are specified individually. By default, the status of all checks is checked. [$GITHUB_CI_EXCLUDE]
    --help, -h  show help (default: false)
 ```
 
 This command will wait for CI checks to finish for a ref or PR URL. If they finish
 successfully it will exit `0` and otherwise it will exit `1`.
 
-To wait for a specific check to finish, use the `--check` flag. See below for
+To wait for a specific check to finish, use the `--check` flag. To exclude
+specific checks from failing the status, use the `--exclude` flag. See below for
 details of the `ci list` subcommand, which can help determine valid values for
 this flag. This flag can be given multiple times to wait for multiple checks. To
 wait for the result of a GitHub Actions workflow, pass the base name of the
@@ -107,9 +110,10 @@ $ wait-for-github ci list https://github.com/grafana/wait-for-github/pull/123
 ╘═══════════════════════╧═══════════╧═════════╛
 ```
 
-This is useful to see what checks are available to pass to the `--check` flag.
-Denoted by `**` in the output above, part of the check name will be in bold.
-These names can be used as values for the `ci --check` flag.
+This is useful to see what checks are available to pass to the `--check` or
+`--exclude` flag. Denoted by `**` in the output above, part of the check name
+will be in bold. These names can be used as values for the `ci --check` or
+`ci --exclude` flags.
 
 [statuses]: https://docs.github.com/en/rest/commits/statuses
 

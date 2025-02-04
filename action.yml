@@ -14,6 +14,9 @@ inputs:
   app-private-key:
     description: "GitHub App private key"
     required: false
+  exclude-checks:
+    description: 'The comma-separated names of the checks to exclude statuses of. Only used when wait-for is "ci"'
+    required: false
   timeout:
     description: "Timeout in golang duration format"
     required: false
@@ -64,6 +67,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
+        GITHUB_CI_EXCLUDE: ${{ inputs.exclude-checks }}
         GITHUB_APP_ID: ${{ inputs.app-id }}
         GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
         GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}

@@ -48,6 +48,7 @@ type prConfig struct {
 	pr    int
 
 	commitInfoFile string
+	excludes       []string
 	writer         fileWriter
 }
 
@@ -119,6 +120,7 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 		repo:           repo,
 		pr:             n,
 		commitInfoFile: c.String("commit-info-file"),
+		excludes:       c.StringSlice("exclude"),
 		writer:         osFileWriter{},
 	}, nil
 }
@@ -182,7 +184,7 @@ func (pr prCheck) Check(ctx context.Context) error {
 		return err
 	}
 
-	status, err := pr.githubClient.GetCIStatus(ctx, pr.owner, pr.repo, sha)
+	status, err := pr.githubClient.GetCIStatus(ctx, pr.owner, pr.repo, sha, pr.excludes)
 	if err != nil {
 		return err
 	}
@@ -217,6 +219,17 @@ func prCommand(cfg *config) *cli.Command {
 				Name: "commit-info-file",
 				Usage: "Path to a file which the commit info will be written. " +
 					"The file will be overwritten if it already exists.",
+			},
+			&cli.StringSliceFlag{
+				Name: "exclude",
+				Aliases: []string{
+					"x",
+				},
+				Usage: "Exclude the status of a specific CI check from failing the wait. " +
+					"By default, a failed status check will exit the pr wait command.",
+				EnvVars: []string{
+					"GITHUB_CI_EXCLUDE",
+				},
 			},
 		},
 		Before: func(c *cli.Context) error {
