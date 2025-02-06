@@ -44,7 +44,7 @@ type GetPRHeadSHA interface {
 }
 
 type CheckOverallCIStatus interface {
-	GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (CIStatus, error)
+	GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (CIStatus, error)
 }
 
 type CheckCIStatusForChecks interface {
@@ -363,7 +363,7 @@ func hasChecksOrStatuses(rollup *StatusCheckRollup) bool {
 	return rollup.Contexts.CheckRunCount > 0 || rollup.Contexts.StatusContextCount > 0
 }
 
-func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) (CIStatus, error) {
+func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, excludes []string) (CIStatus, error) {
 	rollup, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
 	if err != nil {
 		return CIStatusUnknown, err
@@ -392,7 +392,12 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) 
 	}
 
 	if isFailure {
-		log.Debug("Failed CI checks:")
+		reportFailure := false
+		if len(excludes) == 0 {
+			reportFailure = true
+			log.Debug("Failed CI checks:")
+		}
+
 		for _, node := range nodes {
 			isCheckFailure := strings.ToLower(node.CheckRun.Conclusion) == "failure"
 			isStatusFailure := strings.ToLower(node.StatusContext.State) == "failure"
@@ -400,15 +405,28 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string) 
 			switch node.Typename {
 			case "CheckRun":
 				if isCheckFailure {
-					log.Debug(fmt.Sprintf("CheckRun '%s' failed", node.CheckRun.Name))
+					if !slices.Contains(excludes, node.CheckRun.Name) {
+						reportFailure = true
+						log.Debug(fmt.Sprintf("CheckRun '%s' failed", node.CheckRun.Name))
+					} else {
+						log.Debug(fmt.Sprintf("CheckRun '%s' failed but excluded", node.CheckRun.Name))
+					}
 				}
 			case "StatusContext":
 				if isStatusFailure {
-					log.Debug(fmt.Sprintf("StatusContext '%s' failed", node.StatusContext.Context))
+					if !slices.Contains(excludes, node.StatusContext.Context) {
+						reportFailure = true
+						log.Debug(fmt.Sprintf("StatusContext '%s' failed", node.StatusContext.Context))
+					} else {
+						log.Debug(fmt.Sprintf("StatusContext '%s' failed but excluded", node.StatusContext.Context))
+					}
 				}
 			}
 		}
-		return CIStatusFailed, nil
+		if reportFailure {
+			return CIStatusFailed, nil
+		}
+		return CIStatusPassed, nil
 	}
 
 	return CIStatusUnknown, nil

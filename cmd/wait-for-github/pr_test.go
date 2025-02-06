@@ -50,7 +50,7 @@ func (fg *fakeGithubClientPRCheck) GetPRHeadSHA(ctx context.Context, owner, repo
 	return fg.MergedCommit, fg.getPRHeadSHAError
 }
 
-func (fg *fakeGithubClientPRCheck) GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (github.CIStatus, error) {
+func (fg *fakeGithubClientPRCheck) GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (github.CIStatus, error) {
 	return fg.CIStatus, fg.getCIStatusError
 }
 

@@ -35,7 +35,8 @@ type ciConfig struct {
 	ref   string
 
 	// options
-	checks []string
+	checks   []string
+	excludes []string
 }
 
 var (
@@ -117,10 +118,11 @@ func parseCIArguments(c *cli.Context, command string) (ciConfig, error) {
 	}
 
 	return ciConfig{
-		owner:  owner,
-		repo:   repo,
-		ref:    ref,
-		checks: c.StringSlice("check"),
+		owner:    owner,
+		repo:     repo,
+		ref:      ref,
+		checks:   c.StringSlice("check"),
+		excludes: c.StringSlice("exclude"),
 	}, nil
 }
 
@@ -144,10 +146,12 @@ type checkAllCI struct {
 	owner        string
 	repo         string
 	ref          string
+
+	excludes []string
 }
 
 func (ci checkAllCI) Check(ctx context.Context) error {
-	status, err := ci.githubClient.GetCIStatus(ctx, ci.owner, ci.repo, ci.ref)
+	status, err := ci.githubClient.GetCIStatus(ctx, ci.owner, ci.repo, ci.ref, ci.excludes)
 	if err != nil {
 		return err
 	}
@@ -190,6 +194,7 @@ func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus
 		owner:        ciConf.owner,
 		repo:         ciConf.repo,
 		ref:          ciConf.ref,
+		excludes:     ciConf.excludes,
 	}
 
 	specific := checkSpecificCI{
@@ -236,6 +241,18 @@ func ciCommand(cfg *config) *cli.Command {
 					"By default, the status of all checks is checked.",
 				EnvVars: []string{
 					"GITHUB_CI_CHECKS",
+				},
+			},
+			&cli.StringSliceFlag{
+				Name: "exclude",
+				Aliases: []string{
+					"x",
+				},
+				Usage: "Exclude the status of a specific CI check. " +
+					"Argument ignored if checks are specified individually. " +
+					"By default, the status of all checks is checked.",
+				EnvVars: []string{
+					"GITHUB_CI_EXCLUDE",
 				},
 			},
 		},
