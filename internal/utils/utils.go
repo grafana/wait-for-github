@@ -18,21 +18,20 @@ package utils
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/urfave/cli/v2"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type Check interface {
 	Check(ctx context.Context) error
 }
 
-func RunUntilCancelledOrTimeout(ctx context.Context, check Check, interval time.Duration) error {
+func RunUntilCancelledOrTimeout(ctx context.Context, logger *slog.Logger, check Check, interval time.Duration) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -45,15 +44,15 @@ func RunUntilCancelledOrTimeout(ctx context.Context, check Check, interval time.
 			return err
 		}
 
-		log.Infof("Rechecking in %s", interval)
+		logger.InfoContext(ctx, "rechecking", "interval", interval)
 
 		select {
 		case <-ticker.C:
 		case <-ctx.Done():
-			log.Info("Timeout reached, exiting")
+			logger.InfoContext(ctx, "timeout reached, exiting")
 			return cli.Exit("Timeout reached", 1)
 		case <-signalChan:
-			log.Info("Received SIGINT, exiting")
+			logger.InfoContext(ctx, "Received SIGINT, exiting")
 			return cli.Exit("Received SIGINT", 1)
 		}
 	}

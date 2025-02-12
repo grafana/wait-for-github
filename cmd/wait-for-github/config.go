@@ -17,6 +17,7 @@
 package main
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
@@ -24,7 +25,8 @@ import (
 
 type config struct {
 	github.AuthInfo
-	recheckInterval time.Duration
+	recheckInterval    time.Duration
 	pendingRecheckTime time.Duration
-	globalTimeout   time.Duration
+	globalTimeout      time.Duration
+	logger             *slog.Logger
 }

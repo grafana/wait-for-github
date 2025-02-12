@@ -33,7 +33,7 @@ type FakeCIStatusChecker struct {
 	err    error
 }
 
-func (c *FakeCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (github.CIStatus, error) {
+func (c *FakeCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (github.CIStatus, error) {
 	return c.status, c.err
 }
 
@@ -82,7 +82,7 @@ func TestHandleCIStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			output := handleCIStatus(tt.status, tt.url)
+			output := handleCIStatus(testLogger, tt.status, tt.url)
 
 			if tt.expectedExitCode == nil {
 				require.Nil(t, output)
@@ -99,6 +99,7 @@ func TestCheckCIStatus(t *testing.T) {
 	tests := []struct {
 		name             string
 		checks           []string
+		excludes         []string
 		status           github.CIStatus
 		err              error
 		recheckInterval  time.Duration
@@ -127,8 +128,24 @@ func TestCheckCIStatus(t *testing.T) {
 			expectedExitCode: &one,
 		},
 		{
+			name:             "Failed checks excluded",
+			checks:           []string{},
+			excludes:         []string{"failingCheck"},
+			status:           github.CIStatusPassed,
+			err:              cli.Exit("CI successful", 0),
+			expectedExitCode: &zero,
+		},
+		{
 			name:             "Specific checks fail",
 			checks:           []string{"check1", "check2"},
+			status:           github.CIStatusFailed,
+			err:              cli.Exit("CI failed", 1),
+			expectedExitCode: &one,
+		},
+		{
+			name:             "Specific checks fail, exclude ignored",
+			checks:           []string{"check1", "check2"},
+			excludes:         []string{"check1", "check2"},
 			status:           github.CIStatusFailed,
 			err:              cli.Exit("CI failed", 1),
 			expectedExitCode: &one,
@@ -158,12 +175,14 @@ func TestCheckCIStatus(t *testing.T) {
 			fakeCIStatusChecker := &FakeCIStatusChecker{status: tt.status, err: tt.err}
 			cfg := &config{
 				recheckInterval: 1,
+				logger:          testLogger,
 			}
 			ciConf := &ciConfig{
-				owner:  "owner",
-				repo:   "repo",
-				ref:    "ref",
-				checks: tt.checks,
+				excludes: tt.excludes,
+				owner:    "owner",
+				repo:     "repo",
+				ref:      "ref",
+				checks:   tt.checks,
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -235,7 +254,7 @@ func TestParseCIArguments(t *testing.T) {
 			parentCliContext.App = cli.NewApp()
 			cliContext := cli.NewContext(nil, flagSet, parentCliContext)
 
-			got, err := parseCIArguments(cliContext, "ci")
+			got, err := parseCIArguments(cliContext, testLogger, "ci")
 			if tt.wantErr != nil {
 				require.ErrorAs(t, err, &tt.wantErr)
 			}
@@ -249,7 +268,7 @@ type UnknownCIStatusChecker struct {
 	calls int
 }
 
-func (c *UnknownCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string) (github.CIStatus, error) {
+func (c *UnknownCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (github.CIStatus, error) {
 	c.calls++
 	if c.calls == 1 {
 		return github.CIStatusUnknown, nil
@@ -277,6 +296,7 @@ func TestUnknownCIStatusRetries(t *testing.T) {
 	fakeCIStatusChecker := &UnknownCIStatusChecker{}
 	cfg := &config{
 		recheckInterval: 1,
+		logger:          testLogger,
 	}
 	ciConf := &ciConfig{
 		owner: "owner",

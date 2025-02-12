@@ -18,6 +18,8 @@ package github
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -34,6 +36,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
+var testLogger = slog.New(slog.NewTextHandler(
+	io.Discard,
+	&slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
 // TestNewGithubClientWithToken tests that NewGithubClient returns a client
 // whose transport is correctly configured to use the provided token and uses a
 // retrying transport which itself uses a caching transport.
@@ -48,7 +56,7 @@ func TestNewGithubClientWithToken(t *testing.T) {
 	}
 	pendingRecheckTime := 1 * time.Second
 
-	githubClient, err := NewGithubClient(ctx, authInfo, pendingRecheckTime)
+	githubClient, err := NewGithubClient(ctx, testLogger, authInfo, pendingRecheckTime)
 	require.NoError(t, err)
 
 	if githubClient.client == nil {
@@ -86,7 +94,7 @@ func TestNewGithubClientWithAppAuthentication(t *testing.T) {
 	}
 	pendingRecheckTime := 1 * time.Second
 
-	githubClient, err := NewGithubClient(ctx, authInfo, pendingRecheckTime)
+	githubClient, err := NewGithubClient(ctx, testLogger, authInfo, pendingRecheckTime)
 	require.NoError(t, err)
 
 	if githubClient.client == nil {
@@ -112,7 +120,7 @@ func newClientFromMock(t *testing.T, mockClient *http.Client, graphQLURL string)
 
 	// descend through the layers of transports to the bottom-most one, which is
 	// the caching transport. replace its underlying transport with the mock one
-	transport := cachingRetryableTransport().(*retryablehttp.RoundTripper)
+	transport := cachingRetryableTransport(testLogger).(*retryablehttp.RoundTripper)
 	cachingTransport := transport.Client.HTTPClient.Transport.(*httpcache.Transport)
 	cachingTransport.Transport = mockClient.Transport
 
@@ -169,7 +177,7 @@ func TestGraphQLRetry(t *testing.T) {
 	mockClient := &http.Client{Transport: http.DefaultTransport}
 	ghClient := newClientFromMock(t, mockClient, mockServer.URL)
 
-	_, err := ghClient.GetCIStatus(context.Background(), "owner", "repo", "ref")
+	_, err := ghClient.GetCIStatus(context.Background(), "owner", "repo", "ref", make([]string, 0))
 	require.Error(t, err)
 	require.Equal(t, 5, retryCount)
 }
@@ -326,6 +334,7 @@ func TestGetCIStatus(t *testing.T) {
 		name           string
 		mockGraphQL    string
 		expectedStatus CIStatus
+		excludedChecks []string
 	}{
 		{
 			name: "success with only checks",
@@ -599,7 +608,186 @@ func TestGetCIStatus(t *testing.T) {
 				}
 			}
             `,
+			excludedChecks: []string{"ignored-check"},
 			expectedStatus: CIStatusUnknown,
+		},
+		{
+			name: "excluded failed checks",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"status": "COMPLETED",
+											"conclusion": "FAILURE"
+										},
+										{
+											"__typename": "CheckRun",
+											"name": "test",
+											"status": "COMPLETED",
+											"conclusion": "FAILURE"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "workflow",
+											"state": "FAILURE"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "SUCCESS"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			excludedChecks: []string{"build", "test", "workflow"},
+			expectedStatus: CIStatusPassed,
+		},
+		{
+			name: "multiple failed checks not excluded",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"status": "COMPLETED",
+											"conclusion": "FAILURE"
+										},
+										{
+											"__typename": "CheckRun",
+											"name": "test",
+											"status": "COMPLETED",
+											"conclusion": "FAILURE"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "SUCCESS"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			excludedChecks: []string{"build"},
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "failed status with excluded checks",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"status": "COMPLETED",
+											"conclusion": "FAILURE"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "FAILURE"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			excludedChecks: []string{"build"},
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "excluded status checks with failed check runs",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 1,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "CheckRun",
+											"name": "build",
+											"status": "COMPLETED",
+											"conclusion": "FAILURE"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "deployment",
+											"state": "FAILURE"
+										},
+										{
+											"__typename": "StatusContext",
+											"context": "worklow",
+											"state": "FAILURE"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			excludedChecks: []string{"deployment", "workflow"},
+			expectedStatus: CIStatusFailed,
 		},
 	}
 
@@ -625,11 +813,12 @@ func TestGetCIStatus(t *testing.T) {
 				client:             nil,
 				graphQLClient:      graphQLClient,
 				pendingRecheckTime: 1 * time.Millisecond,
+				logger:             testLogger,
 			}
 
 			require.NotNil(t, ghClient.graphQLClient, "graphQLClient should not be nil")
 
-			status, err := ghClient.GetCIStatus(context.Background(), "owner", "repo", "abcdef12345")
+			status, err := ghClient.GetCIStatus(context.Background(), "owner", "repo", "abcdef12345", tt.excludedChecks)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedStatus, status)
 		})
@@ -641,7 +830,7 @@ func TestGetCIStatus_Error(t *testing.T) {
 
 	ctx := context.Background()
 	ghClient := newErrorReturningClient(t)
-	_, err := ghClient.GetCIStatus(ctx, "owner", "repo", "abcdef12345")
+	_, err := ghClient.GetCIStatus(ctx, "owner", "repo", "abcdef12345", make([]string, 0))
 	require.Error(t, err)
 }
 

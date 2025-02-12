@@ -24,9 +24,10 @@ import (
 	"regexp"
 	"strconv"
 
+	"log/slog"
+
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/utils"
-	log "github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
 )
 
@@ -48,6 +49,7 @@ type prConfig struct {
 	pr    int
 
 	commitInfoFile string
+	excludes       []string
 	writer         fileWriter
 }
 
@@ -76,7 +78,7 @@ func extractNumberFromPrURL(url string) (owner, repo, number string) {
 	return owner, repo, number
 }
 
-func parsePRArguments(c *cli.Context) (prConfig, error) {
+func parsePRArguments(c *cli.Context, logger *slog.Logger) (prConfig, error) {
 	var owner, repo, number string
 
 	switch {
@@ -112,13 +114,14 @@ func parsePRArguments(c *cli.Context) (prConfig, error) {
 	if err != nil {
 		return prConfig{}, fmt.Errorf("PR must be a number, got '%s'", c.Args().Get(2))
 	}
-	log.Infof("Waiting for PR %s/%s#%d to be merged/closed", owner, repo, n)
+	logger.InfoContext(c.Context, "waiting for PR to be merged/closed", "owner", owner, "repo", repo, "pr", n)
 
 	return prConfig{
 		owner:          owner,
 		repo:           repo,
 		pr:             n,
 		commitInfoFile: c.String("commit-info-file"),
+		excludes:       c.StringSlice("exclude"),
 		writer:         osFileWriter{},
 	}, nil
 }
@@ -138,8 +141,8 @@ type checkMergedAndOverallCI interface {
 
 type prCheck struct {
 	prConfig
-
 	githubClient checkMergedAndOverallCI
+	logger       *slog.Logger
 }
 
 func (pr prCheck) Check(ctx context.Context) error {
@@ -149,7 +152,7 @@ func (pr prCheck) Check(ctx context.Context) error {
 	}
 
 	if mergedCommit != "" {
-		log.Info("PR is merged, exiting")
+		pr.logger.InfoContext(ctx, "PR is merged, exiting")
 		if pr.commitInfoFile != "" {
 			commit := commitInfo{
 				Owner:    pr.owner,
@@ -163,7 +166,7 @@ func (pr prCheck) Check(ctx context.Context) error {
 				return fmt.Errorf("failed to marshal commit info to json: %w", err)
 			}
 
-			log.Debugf("Writing commit info to file %s", pr.commitInfoFile)
+			pr.logger.DebugContext(ctx, "writing commit info to file", "file", pr.commitInfoFile)
 			if err := pr.writer.WriteFile(pr.commitInfoFile, jsonCommit, 0644); err != nil {
 				return fmt.Errorf("failed to write commit info to file: %w", err)
 			}
@@ -182,17 +185,17 @@ func (pr prCheck) Check(ctx context.Context) error {
 		return err
 	}
 
-	status, err := pr.githubClient.GetCIStatus(ctx, pr.owner, pr.repo, sha)
+	status, err := pr.githubClient.GetCIStatus(ctx, pr.owner, pr.repo, sha, pr.excludes)
 	if err != nil {
 		return err
 	}
 
 	if status == github.CIStatusFailed {
-		log.Info("CI failed, exiting")
+		pr.logger.InfoContext(ctx, "CI failed, exiting")
 		return cli.Exit("CI failed", 1)
 	}
 
-	log.Infof("PR is not closed yet")
+	pr.logger.InfoContext(ctx, "PR is not closed yet")
 	return nil
 }
 
@@ -200,9 +203,10 @@ func checkPRMerged(timeoutCtx context.Context, githubClient checkMergedAndOveral
 	checkPRMergedOrClosed := prCheck{
 		githubClient: githubClient,
 		prConfig:     *prConf,
+		logger:       cfg.logger,
 	}
 
-	return utils.RunUntilCancelledOrTimeout(timeoutCtx, checkPRMergedOrClosed, cfg.recheckInterval)
+	return utils.RunUntilCancelledOrTimeout(timeoutCtx, cfg.logger, checkPRMergedOrClosed, cfg.recheckInterval)
 }
 
 func prCommand(cfg *config) *cli.Command {
@@ -218,15 +222,26 @@ func prCommand(cfg *config) *cli.Command {
 				Usage: "Path to a file which the commit info will be written. " +
 					"The file will be overwritten if it already exists.",
 			},
+			&cli.StringSliceFlag{
+				Name: "exclude",
+				Aliases: []string{
+					"x",
+				},
+				Usage: "Exclude the status of a specific CI check from failing the wait. " +
+					"By default, a failed status check will exit the pr wait command.",
+				EnvVars: []string{
+					"GITHUB_CI_EXCLUDE",
+				},
+			},
 		},
 		Before: func(c *cli.Context) error {
 			var err error
-			prConf, err = parsePRArguments(c)
+			prConf, err = parsePRArguments(c, cfg.logger)
 
 			return err
 		},
 		Action: func(c *cli.Context) error {
-			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo, cfg.pendingRecheckTime)
+			githubClient, err := github.NewGithubClient(c.Context, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}
