@@ -17,13 +17,13 @@
 package main
 
 import (
+	"fmt"
 	"os"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func main() {
 	if err := root().Run(os.Args); err != nil {
-		log.Fatal(err)
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }

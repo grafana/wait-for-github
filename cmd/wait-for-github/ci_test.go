@@ -82,7 +82,7 @@ func TestHandleCIStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			output := handleCIStatus(tt.status, tt.url)
+			output := handleCIStatus(testLogger, tt.status, tt.url)
 
 			if tt.expectedExitCode == nil {
 				require.Nil(t, output)
@@ -175,6 +175,7 @@ func TestCheckCIStatus(t *testing.T) {
 			fakeCIStatusChecker := &FakeCIStatusChecker{status: tt.status, err: tt.err}
 			cfg := &config{
 				recheckInterval: 1,
+				logger:          testLogger,
 			}
 			ciConf := &ciConfig{
 				excludes: tt.excludes,
@@ -253,7 +254,7 @@ func TestParseCIArguments(t *testing.T) {
 			parentCliContext.App = cli.NewApp()
 			cliContext := cli.NewContext(nil, flagSet, parentCliContext)
 
-			got, err := parseCIArguments(cliContext, "ci")
+			got, err := parseCIArguments(cliContext, testLogger, "ci")
 			if tt.wantErr != nil {
 				require.ErrorAs(t, err, &tt.wantErr)
 			}
@@ -295,6 +296,7 @@ func TestUnknownCIStatusRetries(t *testing.T) {
 	fakeCIStatusChecker := &UnknownCIStatusChecker{}
 	cfg := &config{
 		recheckInterval: 1,
+		logger:          testLogger,
 	}
 	ciConf := &ciConfig{
 		owner: "owner",
