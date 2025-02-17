@@ -116,6 +116,7 @@ func TestPRCheck(t *testing.T) {
 			fakePRStatusChecker := &tt.fakeClient
 			cfg := &config{
 				recheckInterval: 1,
+				logger:          testLogger,
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 1)
@@ -172,6 +173,7 @@ func TestWriteCommitInfoFile(t *testing.T) {
 			MergedCommit: "abc123",
 			MergedAt:     1234567890,
 		},
+		logger: testLogger,
 	}
 
 	err := prCheck.Check(context.TODO())
@@ -216,6 +218,7 @@ func TestWriteCommitInfoFileError(t *testing.T) {
 			MergedCommit: "abc123",
 			MergedAt:     1234567890,
 		},
+		logger: testLogger,
 	}
 
 	err := prCheck.Check(context.Background())
@@ -279,7 +282,7 @@ func TestParsePRArguments(t *testing.T) {
 			parentCliContext.App = cli.NewApp()
 			cliContext := cli.NewContext(nil, flagSet, parentCliContext)
 
-			got, err := parsePRArguments(cliContext)
+			got, err := parsePRArguments(cliContext, testLogger)
 			if tt.wantErr != nil {
 				require.ErrorAs(t, err, &tt.wantErr)
 				require.Equal(t, err, tt.wantErr)

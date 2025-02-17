@@ -114,12 +114,12 @@ func ciListCommand(cfg *config) *cli.Command {
 		Usage:     "List all CI checks and their status",
 		ArgsUsage: "<https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]",
 		Action: func(c *cli.Context) error {
-			ciConf, err := parseCIArguments(c, "list")
+			ciConf, err := parseCIArguments(c, cfg.logger, "list")
 			if err != nil {
 				return err
 			}
 
-			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo, cfg.pendingRecheckTime)
+			githubClient, err := github.NewGithubClient(c.Context, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}

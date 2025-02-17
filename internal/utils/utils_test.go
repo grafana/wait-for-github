@@ -3,6 +3,8 @@ package utils
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 	"syscall"
 	"testing"
@@ -19,6 +21,12 @@ func (t *TestCheck) Check(ctx context.Context) error {
 	return t.fn()
 }
 
+var testLogger = slog.New(slog.NewTextHandler(
+	io.Discard,
+	&slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
 // TestCancel tests that RunUntilCancelledOrTimeout returns an error when the
 // context is cancelled.
 func TestCancel(t *testing.T) {
@@ -32,7 +40,7 @@ func TestCancel(t *testing.T) {
 		},
 	}
 
-	err := RunUntilCancelledOrTimeout(timeoutCtx, check, 1*time.Second)
+	err := RunUntilCancelledOrTimeout(timeoutCtx, testLogger, check, 1*time.Second)
 
 	assert.Error(t, err)
 }
@@ -56,7 +64,7 @@ func TestCalledRepeatedly(t *testing.T) {
 		},
 	}
 
-	err := RunUntilCancelledOrTimeout(timeoutCtx, check, 1*time.Millisecond)
+	err := RunUntilCancelledOrTimeout(timeoutCtx, testLogger, check, 1*time.Millisecond)
 
 	assert.Equal(t, 10, n)
 	assert.Equal(t, exitError, err)
@@ -77,7 +85,7 @@ func TestInterrupt(t *testing.T) {
 		},
 	}
 
-	err := RunUntilCancelledOrTimeout(timeoutCtx, check, 1*time.Millisecond)
+	err := RunUntilCancelledOrTimeout(timeoutCtx, testLogger, check, 1*time.Millisecond)
 
 	assert.EqualError(t, err, "Received SIGINT")
 }
@@ -93,7 +101,7 @@ func TestGlobalTimeout(t *testing.T) {
 		},
 	}
 
-	err := RunUntilCancelledOrTimeout(timeoutCtx, check, 1*time.Millisecond)
+	err := RunUntilCancelledOrTimeout(timeoutCtx, testLogger, check, 1*time.Millisecond)
 
 	assert.EqualError(t, err, "Timeout reached")
 }
