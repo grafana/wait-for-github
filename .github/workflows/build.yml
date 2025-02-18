@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - iainlane/build-multiarch-natively
     paths:
       - go.mod
       - go.sum
@@ -156,6 +157,8 @@ jobs:
             type=ref,event=branch,enable={{is_default_branch}}
             # tag with semver, and `latest`
             type=ref,event=tag
+            # for testing
+            type=ref,event=branch
 
       - name: Login to DockerHub
         uses: grafana/shared-workflows/actions/dockerhub-login@13fb504e3bfe323c1188bf244970d94b2d336e86 # dockerhub-login-v1.0.1
