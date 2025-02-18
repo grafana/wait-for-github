@@ -21,29 +21,167 @@ on:
   merge_group:
 
 jobs:
-  main:
+  build:
     permissions:
+      attestations: write
       contents: read
       id-token: write
 
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+
+    name: Build and push Docker image for ${{ matrix.runner }}
+
+    runs-on: ${{ matrix.runner }}
+
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
 
+      - name: Login to DockerHub
+        if: github.event_name == 'push'
+        uses: grafana/shared-workflows/actions/dockerhub-login@13fb504e3bfe323c1188bf244970d94b2d336e86 # dockerhub-login-v1.0.1
+
       - name: Set Docker Buildx up
         uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca # v3.9.0
 
-      - name: Build Docker image
-        uses: grafana/shared-workflows/actions/build-push-to-dockerhub@402975d84dd3fac9ba690f994f412d0ee2f51cf4 # build-push-to-dockerhub-v0.1.1
+      # No tags
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@ca877d9245402d1537745e0e356eab47c3520991 # v6.13.0
         with:
-          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          outputs: type=image,"name=grafana/wait-for-github",push-by-digest=true,name-canonical=true
+          provenance: true
           push: ${{ github.event_name == 'push' }}
+          sbom: false
+
+      - name: Export digests
+        if: github.event_name == 'push'
+        id: export-digests
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          # The digest of the _index_ - this is what we ultimately push, and
+          # what we need to refer to in the multi-arch manifest.
+          mkdir -pv "${RUNNER_TEMP}"/artifact/digests
+          touch "${RUNNER_TEMP}/artifact/digests/${DIGEST#sha256:}"
+
+          # The digest of the _manifest_ referred to by the index. When `docker
+          # buildx imagetools create` processes its inputs, it creates a new
+          # combines these manifest references into a new index. So we should
+          # attest this digest, then clients can find it given the multiarch
+          # index, by dereferncing to the per-arch manifests and looking at the
+          # referrers on them.
+          docker buildx imagetools inspect "grafana/wait-for-github@${DIGEST}" --raw | \
+            jq \
+              --raw-output \
+              '.manifests[] |
+              select (
+                .mediaType == "application/vnd.oci.image.manifest.v1+json" and .annotations["vnd.docker.reference.type"] == null
+                ) |
+              .digest' | \
+            ( echo -n 'digest=' && cat ) | \
+            tee -a "${GITHUB_OUTPUT}"
+
+      - name: Generate SBOM
+        if: github.event_name == 'push'
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          format: cyclonedx-json
+          image: grafana/wait-for-github@${{ steps.export-digests.outputs.digest }}
+          output-file: ${{ runner.temp }}/sbom-${{ matrix.runner }}.json
+
+      - name: Generate SBOM attestation
+        if: github.event_name == 'push'
+        uses: actions/attest-sbom@115c3be05ff3974bcbd596578934b3f9ce39bf68 # v2.2.0
+        with:
+          push-to-registry: true
+          subject-digest: ${{ steps.export-digests.outputs.digest }}
+          subject-name: index.docker.io/grafana/wait-for-github
+          sbom-path: ${{ runner.temp }}/sbom-${{ matrix.runner }}.json
+
+      - name: Upload artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        with:
+          name: artifacts-${{ matrix.runner }}
+          path: ${{ runner.temp }}/artifact/
+          if-no-files-found: error
+          retention-days: 1
+
+  manifest:
+    if: github.event_name == 'push'
+
+    needs:
+      - build
+
+    permissions:
+      attestations: write
+      id-token: write
+
+    name: Generate multi-arch manifest list and build provenance attestation
+
+    runs-on: ubuntu-24.04
+
+    outputs:
+      digest: ${{ steps.inspect.outputs.digest }}
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          merge-multiple: true
+          path: ${{ runner.temp }}/artifacts
+          pattern: artifacts-*
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@369eb591f429131d6889c46b94e711f089e6ca96 # v5.6.1
+        with:
+          images: grafana/wait-for-github
+          sep-tags: ' '
           tags: |
             # tag with branch name for `main`
             type=ref,event=branch,enable={{is_default_branch}}
             # tag with semver, and `latest`
             type=ref,event=tag
-          repository: grafana/wait-for-github
+
+      - name: Login to DockerHub
+        uses: grafana/shared-workflows/actions/dockerhub-login@13fb504e3bfe323c1188bf244970d94b2d336e86 # dockerhub-login-v1.0.1
+
+      - name: Create manifest list and push
+        working-directory: ${{ runner.temp }}/artifacts/digests
+        run: |
+          docker buildx imagetools create $(jq --compact-output --raw-output '.tags | map("-t " + .) | join(" ")' <<< "${DOCKER_METADATA_OUTPUT_JSON}") \
+            $(printf 'grafana/wait-for-github@sha256:%s ' *)
+
+      - name: Inspect image
+        id: inspect
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+            docker buildx imagetools inspect "grafana/wait-for-github:${VERSION}"
+
+            # Output image digest as github output
+            docker buildx imagetools inspect "grafana/wait-for-github:${VERSION}" --format "{{json .Manifest.Digest}}" | \
+              xargs | \
+              ( echo -n 'digest=' && cat ) | \
+              tee -a "${GITHUB_OUTPUT}"
+
+      - name: Generate build provenance attestation
+        uses: actions/attest-build-provenance@520d128f165991a6c774bcb264f323e3d70747f4 # v2.2.0
+        with:
+          push-to-registry: true
+          subject-name: index.docker.io/grafana/wait-for-github
+          subject-digest: ${{ steps.inspect.outputs.digest }}
