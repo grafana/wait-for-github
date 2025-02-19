@@ -18,6 +18,8 @@ package github
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -34,6 +36,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
+var testLogger = slog.New(slog.NewTextHandler(
+	io.Discard,
+	&slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+
 // TestNewGithubClientWithToken tests that NewGithubClient returns a client
 // whose transport is correctly configured to use the provided token and uses a
 // retrying transport which itself uses a caching transport.
@@ -48,7 +56,7 @@ func TestNewGithubClientWithToken(t *testing.T) {
 	}
 	pendingRecheckTime := 1 * time.Second
 
-	githubClient, err := NewGithubClient(ctx, authInfo, pendingRecheckTime)
+	githubClient, err := NewGithubClient(ctx, testLogger, authInfo, pendingRecheckTime)
 	require.NoError(t, err)
 
 	if githubClient.client == nil {
@@ -86,7 +94,7 @@ func TestNewGithubClientWithAppAuthentication(t *testing.T) {
 	}
 	pendingRecheckTime := 1 * time.Second
 
-	githubClient, err := NewGithubClient(ctx, authInfo, pendingRecheckTime)
+	githubClient, err := NewGithubClient(ctx, testLogger, authInfo, pendingRecheckTime)
 	require.NoError(t, err)
 
 	if githubClient.client == nil {
@@ -112,7 +120,7 @@ func newClientFromMock(t *testing.T, mockClient *http.Client, graphQLURL string)
 
 	// descend through the layers of transports to the bottom-most one, which is
 	// the caching transport. replace its underlying transport with the mock one
-	transport := cachingRetryableTransport().(*retryablehttp.RoundTripper)
+	transport := cachingRetryableTransport(testLogger).(*retryablehttp.RoundTripper)
 	cachingTransport := transport.Client.HTTPClient.Transport.(*httpcache.Transport)
 	cachingTransport.Transport = mockClient.Transport
 
@@ -122,6 +130,7 @@ func newClientFromMock(t *testing.T, mockClient *http.Client, graphQLURL string)
 	httpClient := &http.Client{Transport: transport}
 
 	return &GHClient{
+		logger:             testLogger,
 		client:             github.NewClient(httpClient),
 		graphQLClient:      graphql.NewClient(graphQLURL, httpClient),
 		pendingRecheckTime: 0,
@@ -279,6 +288,7 @@ func newErrorReturningClient(t *testing.T) *GHClient {
 	}))
 
 	return &GHClient{
+		logger:        testLogger,
 		client:        github.NewClient(nil),
 		graphQLClient: graphql.NewClient(mockServer.URL, http.DefaultClient),
 	}
@@ -805,6 +815,7 @@ func TestGetCIStatus(t *testing.T) {
 				client:             nil,
 				graphQLClient:      graphQLClient,
 				pendingRecheckTime: 1 * time.Millisecond,
+				logger:             testLogger,
 			}
 
 			require.NotNil(t, ghClient.graphQLClient, "graphQLClient should not be nil")

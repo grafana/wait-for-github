@@ -17,7 +17,7 @@ COMMANDS:
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --log-level value, -l value                    Set the log level. Valid levels are: panic, fatal, error, warning, info, debug, trace. (default: "info")
+   --log-level value, -l value                    Set the log level. Valid levels are: error, warn, info, and debug. (default: "info")
    --github-app-private-key-path value, -p value  Path to the GitHub App private key
    --github-app-private-key value                 Contents of the GitHub App private key [$GITHUB_APP_PRIVATE_KEY]
    --github-app-id value                          GitHub App ID (default: 0) [$GITHUB_APP_ID]
