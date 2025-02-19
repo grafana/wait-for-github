@@ -16,7 +16,13 @@
 
 package main
 
+import (
+	"log/slog"
+)
+
 var (
 	zero = 0
 	one  = 1
 )
+
+var testLogger = slog.New(slog.DiscardHandler)

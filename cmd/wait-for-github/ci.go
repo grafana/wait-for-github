@@ -23,10 +23,11 @@ import (
 	"strings"
 
 	"github.com/grafana/wait-for-github/internal/github"
+	"github.com/grafana/wait-for-github/internal/logging"
 	"github.com/grafana/wait-for-github/internal/utils"
 	"github.com/urfave/cli/v2"
 
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 type ciConfig struct {
@@ -74,10 +75,10 @@ func extractRefFromPrURL(url string) (owner, repo, ref string) {
 	return owner, repo, ref
 }
 
-func parseCIArguments(c *cli.Context, command string) (ciConfig, error) {
+func parseCIArguments(c *cli.Context, logger *slog.Logger, command string) (ciConfig, error) {
 	var owner, repo, ref string
 
-	log.Debugf("parseCIArguments: %+v, nArgs: %d", c.Args(), c.NArg())
+	logger.DebugContext(c.Context, "parseCIArguments", "args", c.Args(), "nArgs", c.NArg())
 
 	args := c.Args()
 
@@ -126,10 +127,10 @@ func parseCIArguments(c *cli.Context, command string) (ciConfig, error) {
 	}, nil
 }
 
-func handleCIStatus(status github.CIStatus, url string) cli.ExitCoder {
+func handleCIStatus(logger *slog.Logger, status github.CIStatus, url string) cli.ExitCoder {
 	switch status {
 	case github.CIStatusUnknown:
-		log.Infof("CI status is unknown")
+		logger.Info("CI status is unknown")
 	case github.CIStatusPending:
 	case github.CIStatusPassed:
 		return cli.Exit("CI successful", 0)
@@ -137,7 +138,7 @@ func handleCIStatus(status github.CIStatus, url string) cli.ExitCoder {
 		return cli.Exit(fmt.Sprintf("CI failed. Please check CI on the following commit: %s", url), 1)
 	}
 
-	log.Infof("CI is not finished yet")
+	logger.Info("CI is not finished yet")
 	return nil
 }
 
@@ -146,8 +147,8 @@ type checkAllCI struct {
 	owner        string
 	repo         string
 	ref          string
-
-	excludes []string
+	excludes     []string
+	logger       *slog.Logger
 }
 
 func (ci checkAllCI) Check(ctx context.Context) error {
@@ -156,7 +157,7 @@ func (ci checkAllCI) Check(ctx context.Context) error {
 		return err
 	}
 
-	return handleCIStatus(status, urlFor(ci.owner, ci.repo, ci.ref))
+	return handleCIStatus(ci.logger, status, urlFor(ci.owner, ci.repo, ci.ref))
 }
 
 type checkSpecificCI struct {
@@ -174,20 +175,21 @@ func (ci checkSpecificCI) Check(ctx context.Context) error {
 	}
 
 	if status == github.CIStatusFailed {
-		log.Infof("CI check %s failed, not waiting for other checks", strings.Join(interestingChecks, ", "))
+		ci.logger.InfoContext(ctx, "CI check failed, not waiting for other checks", "failed_checks", strings.Join(interestingChecks, ", "))
 	}
 
 	// we didn't find any failed checks, and not all checks are finished, so
 	// we need to recheck
 	if status == github.CIStatusPending {
-		log.Infof("CI checks are not finished yet (still waiting for %s)", strings.Join(interestingChecks, ", "))
+		ci.logger.InfoContext(ctx, "CI checks are not finished yet", "waiting_for", strings.Join(interestingChecks, ", "))
 	}
 
-	return handleCIStatus(status, urlFor(ci.owner, ci.repo, ci.ref))
+	return handleCIStatus(ci.logger, status, urlFor(ci.owner, ci.repo, ci.ref))
 }
 
 func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus, cfg *config, ciConf *ciConfig) error {
-	log.Infof("Checking CI status on %s/%s@%s", ciConf.owner, ciConf.repo, ciConf.ref)
+	logger := cfg.logger.With(logging.OwnerAttr(ciConf.owner), logging.RepoAttr(ciConf.repo), logging.RefAttr(ciConf.ref))
+	logger.InfoContext(timeoutCtx, "checking CI status")
 
 	all := checkAllCI{
 		githubClient: githubClient,
@@ -195,6 +197,7 @@ func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus
 		repo:         ciConf.repo,
 		ref:          ciConf.ref,
 		excludes:     ciConf.excludes,
+		logger:       cfg.logger,
 	}
 
 	specific := checkSpecificCI{
@@ -203,11 +206,11 @@ func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus
 	}
 
 	if len(ciConf.checks) > 0 {
-		log.Infof("Checking CI status for checks: %s", strings.Join(ciConf.checks, ", "))
-		return utils.RunUntilCancelledOrTimeout(timeoutCtx, specific, cfg.recheckInterval)
+		logger.InfoContext(timeoutCtx, "checking CI status for checks", "checks", strings.Join(ciConf.checks, ", "))
+		return utils.RunUntilCancelledOrTimeout(timeoutCtx, cfg.logger, specific, cfg.recheckInterval)
 	}
 
-	return utils.RunUntilCancelledOrTimeout(timeoutCtx, all, cfg.recheckInterval)
+	return utils.RunUntilCancelledOrTimeout(timeoutCtx, cfg.logger, all, cfg.recheckInterval)
 }
 
 func ciCommand(cfg *config) *cli.Command {
@@ -216,12 +219,12 @@ func ciCommand(cfg *config) *cli.Command {
 		Usage:     "Wait for CI to be finished",
 		ArgsUsage: "<https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]",
 		Action: func(c *cli.Context) error {
-			ciConf, err := parseCIArguments(c, "ci")
+			ciConf, err := parseCIArguments(c, cfg.logger, "ci")
 			if err != nil {
 				return err
 			}
 
-			githubClient, err := github.NewGithubClient(c.Context, cfg.AuthInfo, cfg.pendingRecheckTime)
+			githubClient, err := github.NewGithubClient(c.Context, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}

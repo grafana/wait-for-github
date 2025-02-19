@@ -24,15 +24,16 @@ import (
 	"strings"
 	"time"
 
+	"log/slog"
+
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/fatih/color"
 	"github.com/google/go-github/v52/github"
+	"github.com/grafana/wait-for-github/internal/logging"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/shurcooL/graphql"
 	"golang.org/x/oauth2"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type CheckPRMerged interface {
@@ -69,6 +70,7 @@ type AuthInfo struct {
 }
 
 type GHClient struct {
+	logger             *slog.Logger
 	client             *github.Client
 	graphQLClient      *graphql.Client
 	pendingRecheckTime time.Duration
@@ -215,21 +217,10 @@ type StatusCheckRollup struct {
 	Contexts RollupContexts `graphql:"contexts(first: 100, after: $cursor)"`
 }
 
-func NewGithubClient(ctx context.Context, authInfo AuthInfo, pendingRecheckTime time.Duration) (GHClient, error) {
-	// If a GitHub token is provided, use it to authenticate in preference to
-	// App authentication
-	if authInfo.GithubToken != "" {
-		log.Debug("Using GitHub token for authentication")
-		return AuthenticateWithToken(ctx, authInfo.GithubToken, pendingRecheckTime), nil
-	}
-
-	// Otherwise, use the App authentication flow
-	log.Debug("Using GitHub App for authentication")
-	return AuthenticateWithApp(ctx, authInfo.PrivateKey, authInfo.AppID, authInfo.InstallationID, pendingRecheckTime)
-}
-
-func cachingRetryableTransport() http.RoundTripper {
+func cachingRetryableTransport(logger *slog.Logger) http.RoundTripper {
 	retryableClient := retryablehttp.NewClient()
+	retryableClient.Logger = logger
+
 	httpCache := httpcache.NewMemoryCacheTransport()
 	retryableClient.HTTPClient.Transport = httpCache
 
@@ -238,18 +229,30 @@ func cachingRetryableTransport() http.RoundTripper {
 	}
 }
 
-// AuthenticateWithToken authenticates with a GitHub token
-func AuthenticateWithToken(ctx context.Context, token string, pendingRecheckTime time.Duration) GHClient {
+func NewGithubClient(ctx context.Context, logger *slog.Logger, authInfo AuthInfo, pendingRecheckTime time.Duration) (GHClient, error) {
+	// If a GitHub token is provided, use it to authenticate in preference to App authentication.
+	if authInfo.GithubToken != "" {
+		logger.InfoContext(ctx, "using github token for authentication")
+		return AuthenticateWithToken(ctx, logger, authInfo.GithubToken, pendingRecheckTime), nil
+	}
+
+	logger.InfoContext(ctx, "using github app for authentication")
+	return AuthenticateWithApp(ctx, logger, authInfo.PrivateKey, authInfo.AppID, authInfo.InstallationID, pendingRecheckTime)
+}
+
+// AuthenticateWithToken authenticates with a GitHub token.
+func AuthenticateWithToken(ctx context.Context, logger *slog.Logger, token string, pendingRecheckTime time.Duration) GHClient {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: cachingRetryableTransport()})
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: cachingRetryableTransport(logger)})
 	httpClient := oauth2.NewClient(ctx, src)
 
 	restClient := github.NewClient(httpClient)
 	graphQLClient := graphql.NewClient("https://api.github.com/graphql", httpClient)
 
 	return GHClient{
+		logger:             logger,
 		client:             restClient,
 		graphQLClient:      graphQLClient,
 		pendingRecheckTime: pendingRecheckTime,
@@ -257,8 +260,8 @@ func AuthenticateWithToken(ctx context.Context, token string, pendingRecheckTime
 }
 
 // AuthenticateWithApp authenticates with a GitHub App
-func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installationID int64, pendingRecheckTime time.Duration) (GHClient, error) {
-	itr, err := ghinstallation.New(cachingRetryableTransport(), appID, installationID, privateKey)
+func AuthenticateWithApp(ctx context.Context, logger *slog.Logger, privateKey []byte, appID, installationID int64, pendingRecheckTime time.Duration) (GHClient, error) {
+	itr, err := ghinstallation.New(cachingRetryableTransport(logger), appID, installationID, privateKey)
 	if err != nil {
 		return GHClient{}, fmt.Errorf("failed to create transport: %w", err)
 	}
@@ -269,6 +272,7 @@ func AuthenticateWithApp(ctx context.Context, privateKey []byte, appID, installa
 	graphQLClient := graphql.NewClient("https://api.github.com/graphql", httpClient)
 
 	return GHClient{
+		logger:             logger,
 		client:             restClient,
 		graphQLClient:      graphQLClient,
 		pendingRecheckTime: pendingRecheckTime,
@@ -342,7 +346,7 @@ func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref
 
 		if !pageInfo.HasNextPage {
 			if (!hasChecksOrStatuses(rollup)) && !retried {
-				log.Infof("Did not find any checks and/or statuses. Retrying in %s to see if any appear", c.pendingRecheckTime)
+				c.logger.InfoContext(ctx, "did not find any checks and/or statuses. retrying", "retry_in", c.pendingRecheckTime)
 				time.Sleep(c.pendingRecheckTime)
 				retried = true
 				vars["cursor"] = (*graphql.String)(nil)
@@ -364,6 +368,7 @@ func hasChecksOrStatuses(rollup *StatusCheckRollup) bool {
 }
 
 func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, excludes []string) (CIStatus, error) {
+	logger := c.logger.With(logging.OwnerAttr(owner), logging.RepoAttr(repoName), logging.RefAttr(ref))
 	rollup, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
 	if err != nil {
 		return CIStatusUnknown, err
@@ -383,7 +388,7 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, 
 	}
 
 	if !hasChecksOrStatuses(rollup) {
-		log.Debug("No checks or statuses found after retry, assuming success")
+		logger.DebugContext(ctx, "no checks or statuses found after retry, assuming success")
 		return CIStatusPassed, nil
 	}
 
@@ -395,30 +400,35 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, 
 		reportFailure := false
 		if len(excludes) == 0 {
 			reportFailure = true
-			log.Debug("Failed CI checks:")
+			c.logger.DebugContext(ctx, "failed CI checks")
 		}
 
 		for _, node := range nodes {
 			isCheckFailure := strings.ToLower(node.CheckRun.Conclusion) == "failure"
 			isStatusFailure := strings.ToLower(node.StatusContext.State) == "failure"
 
+			checkRunName := node.CheckRun.Name
+			statusContextName := node.StatusContext.Context
+
 			switch node.Typename {
 			case "CheckRun":
 				if isCheckFailure {
-					if !slices.Contains(excludes, node.CheckRun.Name) {
+					checkLogger := logger.With(logging.CheckRunAttr(checkRunName))
+					if !slices.Contains(excludes, checkRunName) {
 						reportFailure = true
-						log.Debug(fmt.Sprintf("CheckRun '%s' failed", node.CheckRun.Name))
+						checkLogger.DebugContext(ctx, "checkrun failed")
 					} else {
-						log.Debug(fmt.Sprintf("CheckRun '%s' failed but excluded", node.CheckRun.Name))
+						checkLogger.DebugContext(ctx, "checkrun failed but excluded")
 					}
 				}
 			case "StatusContext":
 				if isStatusFailure {
-					if !slices.Contains(excludes, node.StatusContext.Context) {
+					statusLogger := logger.With(logging.StatusContextAttr(statusContextName))
+					if !slices.Contains(excludes, statusContextName) {
 						reportFailure = true
-						log.Debug(fmt.Sprintf("StatusContext '%s' failed", node.StatusContext.Context))
+						statusLogger.DebugContext(ctx, "status context failed")
 					} else {
-						log.Debug(fmt.Sprintf("StatusContext '%s' failed but excluded", node.StatusContext.Context))
+						statusLogger.DebugContext(ctx, "status context failed but excluded")
 					}
 				}
 			}

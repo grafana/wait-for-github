@@ -19,17 +19,19 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
+	"github.com/grafana/wait-for-github/internal/logging"
 	"github.com/urfave/cli/v2"
-
-	log "github.com/sirupsen/logrus"
 )
 
 type cmdFunc func(cfg *config) *cli.Command
+
+var defaultLogLevel logging.Level = logging.Level(slog.LevelInfo)
 
 func root() *cli.App {
 	var cfg config
@@ -53,11 +55,11 @@ func root() *cli.App {
 		Name:  "wait-for-github",
 		Usage: "Wait for things to happen on GitHub",
 		Flags: []cli.Flag{
-			&cli.StringFlag{
+			&cli.GenericFlag{
 				Name:    "log-level",
 				Aliases: []string{"l"},
 				Usage:   fmt.Sprintf("Set the log level. Valid levels are: %s.", strings.Join(validLogLevels(), ", ")),
-				Value:   "info",
+				Value:   &defaultLogLevel,
 			},
 			&cli.StringFlag{
 				Name:    "github-app-private-key-path",
@@ -114,31 +116,17 @@ func root() *cli.App {
 }
 
 func validLogLevels() []string {
-	var levels []string
-	for _, level := range log.AllLevels {
-		levels = append(levels, level.String())
-	}
-	return levels
+	return []string{"debug", "info", "warn", "error"}
 }
 
 func handleGlobalConfig(c *cli.Context) (config, error) {
-	formatter := &log.TextFormatter{
-		FullTimestamp:   true,
-		TimestampFormat: "2006-01-02 15:04:05",
-	}
-	log.SetFormatter(formatter)
+	var cfg config
+	ctx := c.Context
 
-	level := c.String("log-level")
-	if logLevel, err := log.ParseLevel(level); err != nil {
-		return config{}, fmt.Errorf("invalid log level: %s. valid levels are: %s", level, strings.Join(validLogLevels(), ", "))
-	} else {
-		log.SetLevel(logLevel)
-	}
+	logging.SetupLogger(slog.Level(defaultLogLevel))
+	cfg.logger = slog.Default()
 
-	log.Debug("Debug logging enabled")
-	log.Trace("Trace logging enabled")
-
-	cfg := config{}
+	cfg.logger.DebugContext(ctx, "debug logging enabled")
 
 	cfg.recheckInterval = c.Duration("recheck-interval")
 	cfg.pendingRecheckTime = c.Duration("pending-recheck-time")
@@ -146,8 +134,8 @@ func handleGlobalConfig(c *cli.Context) (config, error) {
 
 	token := c.String("github-token")
 	if token != "" {
-		log.Debug("Will use GitHub token for authentication")
-		log.Debug("Using token starting with ", token[:10], "...")
+		cfg.logger.DebugContext(ctx, "will use github token for authentication")
+		cfg.logger.DebugContext(ctx, "using token starting with", "token", token[:10])
 		cfg.AuthInfo.GithubToken = token
 
 		return cfg, nil
@@ -168,7 +156,7 @@ func handleGlobalConfig(c *cli.Context) (config, error) {
 	installationID := c.Int64("github-app-installation-id")
 
 	if len(privateKey) == 0 || appId == 0 || installationID == 0 {
-		log.Error("Must provide either a GitHub token or a GitHub App private key, App ID and installation ID")
+		cfg.logger.ErrorContext(ctx, "must provide either a GitHub token or a GitHub app private key, app ID and installation ID")
 		cli.ShowAppHelpAndExit(c, 1)
 	}
 
