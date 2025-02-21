@@ -221,6 +221,44 @@ jobs:
           GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
 ```
 
+## Verifying the image
+
+Container images pushed by this repository can be verified to have been built
+using our CI workflows, meaning that you can take one of our images and trace it
+back to the source commit and workflow run from which it was built. This uses
+[GitHub's artefact attestation][attestation] support. [This page][attestation]
+contains instructions for how to verify the attestations, including in
+Kubernetes clusters and offline environments.
+
+As a brief example, the `gh` CLI can be used in an to verify the attestation
+_online_:
+
+```console
+$ gh attestation verify --bundle-from-oci --repo grafana/wait-for-github oci://grafana/wait-for-github:main
+Loaded digest sha256:83af77d5e81326dee6593937688a27916a2bb5da7886cec095b8de75cb9744e1 for oci://grafana/wait-for-github:main
+Loaded 1 attestation from GitHub API
+
+[...]
+
+✓ Verification succeeded!
+
+The following 1 attestation matched the policy criteria
+
+- Attestation #1
+  - Build repo:..... grafana/wait-for-github
+  - Build workflow:. .github/workflows/build.yml@refs/heads/main
+  - Signer repo:.... grafana/wait-for-github
+  - Signer workflow: .github/workflows/build.yml@refs/heads/main
+```
+
+What this shows is that the image `grafana/wait-for-github:main` was built from
+the `grafana/wait-for-github` repository using the workflow given in the
+command's output. Re-run the command with `--format=json` to see all of the
+information contained within the attestation, for example a link to the commit
+and the build themselves.
+
+[attestation]: https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations
+
 ## Contributing
 
 Contributions via issues and GitHub PRs are very welcome. We'll try to be
