@@ -35,4 +35,4 @@ jobs:
 
       - name: lint PR title / commit message
         if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-        uses: grafana/shared-workflows/actions/lint-pr-title@90e72fd7b35f5d30696313aeb736a13a15eb82ad # lint-pr-title-v1.0.0
+        uses: grafana/shared-workflows/actions/lint-pr-title@402975d84dd3fac9ba690f994f412d0ee2f51cf4 # lint-pr-title-v1.0.0
