@@ -17,8 +17,19 @@ on:
       - "**/*.go"
       - Dockerfile
       - .github/workflows/build.yml
-
   merge_group:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+env:
+  # Docker image tags. See https://github.com/docker/metadata-action for format
+  TAGS_CONFIG: |
+    type=ref,event=branch,enable={{is_default_branch}}
+    type=semver,pattern={{version}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+
 
 jobs:
   main:
@@ -33,17 +44,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set Docker Buildx up
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-
       - name: Build Docker image
         uses: grafana/shared-workflows/actions/build-push-to-dockerhub@402975d84dd3fac9ba690f994f412d0ee2f51cf4 # build-push-to-dockerhub-v0.1.1
         with:
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name == 'push' }}
-          tags: |
-            # tag with branch name for `main`
-            type=ref,event=branch,enable={{is_default_branch}}
-            # tag with semver, and `latest`
-            type=ref,event=tag
-          repository: grafana/wait-for-github
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_call' }}
+          tags: ${{ env.TAGS_CONFIG }}
+          repository: ${{ github.repository }}
