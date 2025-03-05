@@ -18,7 +18,7 @@ on:
       - Dockerfile
       - .github/workflows/build.yml
     tags:
-      - 'wait-for-github-v*'
+      - "*"
   merge_group:
 
 jobs:
