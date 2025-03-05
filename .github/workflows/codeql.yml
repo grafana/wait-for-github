@@ -16,6 +16,11 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+    types:
+      - edited
+      - opened
+      - ready_for_review
+      - synchronize
   schedule:
     - cron: '30 14 * * 6'
 
