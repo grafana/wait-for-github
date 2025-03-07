@@ -48,6 +48,6 @@ jobs:
         uses: grafana/shared-workflows/actions/build-push-to-dockerhub@402975d84dd3fac9ba690f994f412d0ee2f51cf4 # build-push-to-dockerhub-v0.1.1
         with:
           platforms: linux/amd64,linux/arm64
-          push: github.event_name == 'push' || github.event_name == 'workflow_call'
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_call' }}
           tags: ${{ env.TAGS_CONFIG }}
           repository: ${{ github.repository }}
