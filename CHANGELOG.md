@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/grafana/wait-for-github/compare/wait-for-github-v1.0.0...wait-for-github-v1.0.1) (2025-03-10)
+
+
+### 🏗️ Build System
+
+* **deps:** bump github/codeql-action from 3.28.10 to 3.28.11 ([46257bd](https://github.com/grafana/wait-for-github/commit/46257bd66ed2f39ce58c1b7ee43f37308a973380))
+* **deps:** bump googleapis/release-please-action from 4.1.4 to 4.2.0 ([11a152d](https://github.com/grafana/wait-for-github/commit/11a152d13e62c5448fc6dc7d61864d9e3f9025c7))
+
 ## 1.0.0 (2025-03-05)
 
 
