@@ -17,3 +17,16 @@ jobs:
         with:
           config-file: .release-please.json
           manifest-file: .release-please-manifest.json
+
+  release-docker-image:
+    needs:
+      - release-please
+    if: needs.release-please.outputs.release_created
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    uses: ./.github/workflows/build.yml
+    with:
+      tag: ${{ needs.release-please.outputs.release_tag }}
+
