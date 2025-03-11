@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/grafana/wait-for-github/compare/v1.1.0...v1.1.1) (2025-03-11)
+
+
+### 🤖 Continuous Integration
+
+* fix release-please output and context ([7622ff3](https://github.com/grafana/wait-for-github/commit/7622ff32aec3acf85b12093331b0aa34608c1647))
+
 ## [1.1.0](https://github.com/grafana/wait-for-github/compare/v1.0.0...v1.1.0) (2025-03-11)
 
 
