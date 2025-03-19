@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/grafana/wait-for-github/compare/v1.1.1...v1.1.2) (2025-03-19)
+
+
+### 🏗️ Build System
+
+* **deps:** bump distroless/static-debian12 from `3f2b64e` to `95ea148` ([a8f06ac](https://github.com/grafana/wait-for-github/commit/a8f06ac58f54ff909ef97d7704f8f42396fca4ae))
+* **deps:** bump golangci/golangci-lint-action from 6.5.0 to 6.5.1 ([420ae75](https://github.com/grafana/wait-for-github/commit/420ae75d0e527f348a07b15f1a0f96270ae0b207))
+
 ## [1.1.1](https://github.com/grafana/wait-for-github/compare/v1.1.0...v1.1.1) (2025-03-11)
 
 
