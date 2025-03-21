@@ -27,7 +27,7 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/goccy/go-yaml v1.11.0 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/google/go-github/v64 v64.0.0 // indirect
 	github.com/google/go-github/v69 v69.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
