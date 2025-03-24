@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.2](https://github.com/grafana/wait-for-github/compare/v1.1.1...v1.1.2) (2025-03-24)
+
+
+### 🏗️ Build System
+
+* **deps:** bump actions/setup-go from 5.3.0 to 5.4.0 ([909d166](https://github.com/grafana/wait-for-github/commit/909d166f1cc93f3f5770a016806879faf657c9cf))
+* **deps:** bump distroless/static-debian12 from `3f2b64e` to `95ea148` ([a8f06ac](https://github.com/grafana/wait-for-github/commit/a8f06ac58f54ff909ef97d7704f8f42396fca4ae))
+* **deps:** bump github.com/golang-jwt/jwt/v4 from 4.5.1 to 4.5.2 ([84e3298](https://github.com/grafana/wait-for-github/commit/84e3298ea5144c9c188415af453cb64dabd02acb))
+* **deps:** bump github/codeql-action from 3.28.11 to 3.28.12 ([9d572c3](https://github.com/grafana/wait-for-github/commit/9d572c3bea7a5300140301af484d2ae61832cc4c))
+* **deps:** bump golangci/golangci-lint-action from 6.5.0 to 6.5.1 ([420ae75](https://github.com/grafana/wait-for-github/commit/420ae75d0e527f348a07b15f1a0f96270ae0b207))
+* **deps:** bump golangci/golangci-lint-action from 6.5.1 to 6.5.2 ([954c43d](https://github.com/grafana/wait-for-github/commit/954c43d04b0328304c0694411c962ad5ae2ffa6a))
+
 ## [1.1.1](https://github.com/grafana/wait-for-github/compare/v1.1.0...v1.1.1) (2025-03-11)
 
 
