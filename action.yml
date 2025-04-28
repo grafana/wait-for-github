@@ -71,6 +71,12 @@ runs:
         GITHUB_APP_ID: ${{ inputs.app-id }}
         GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
         GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
+        INPUT_REF: ${{ inputs.ref }}
+        INPUT_REPO: ${{ inputs.repo }}
+        INPUT_OWNER: ${{ inputs.owner }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_INTERVAL: ${{ inputs.interval }}
+        INPUT_WAIT_FOR: ${{ inputs.wait-for }}
       run: |
         cd "${{ github.workspace }}/action-checkout"
 
@@ -78,10 +84,10 @@ runs:
            --log-level \
            debug \
            --timeout \
-           ${{ inputs.timeout }} \
+           "${INPUT_TIMEOUT}" \
            --recheck-interval \
-           ${{ inputs.interval }} \
-           ${{ inputs.wait-for }} \
-           ${{ inputs.owner }} \
-           ${{ inputs.repo }} \
-           ${{ inputs.ref }}
+           "${INPUT_INTERVAL}" \
+           "${INPUT_WAIT_FOR}" \
+           "${INPUT_OWNER}" \
+           "${INPUT_REPO}" \
+           "${INPUT_REF}"
