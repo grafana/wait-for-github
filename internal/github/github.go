@@ -18,6 +18,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -217,6 +218,61 @@ type StatusCheckRollup struct {
 	Contexts RollupContexts `graphql:"contexts(first: 100, after: $cursor)"`
 }
 
+// handleResponseError processes GitHub API response errors
+func (c GHClient) handleResponseError(resp *github.Response, operation, owner, repo string) error {
+	if resp == nil || resp.Response == nil {
+		return nil
+	}
+
+	apiErr := github.CheckResponse(resp.Response)
+	if apiErr != nil {
+		switch e := apiErr.(type) {
+		case *github.RateLimitError:
+			resetTime := e.Rate.Reset.Time
+			return &GitHubRateLimitError{
+				Operation: operation,
+				Owner:     owner,
+				Repo:      repo,
+				ResetTime: resetTime,
+				Remaining: e.Rate.Remaining,
+				Err:       apiErr,
+			}
+
+		case *github.AbuseRateLimitError:
+			var retryAfter time.Duration
+			if e.RetryAfter != nil {
+				retryAfter = *e.RetryAfter
+			}
+			return &GitHubAbuseRateLimitError{
+				Operation:  operation,
+				Owner:      owner,
+				Repo:       repo,
+				RetryAfter: retryAfter,
+				Err:        apiErr,
+			}
+
+		case *github.AcceptedError:
+			return &GitHubAcceptedError{
+				Operation: operation,
+				Owner:     owner,
+				Repo:      repo,
+				Err:       apiErr,
+			}
+
+		default:
+			return &GitHubAPIError{
+				Operation: operation,
+				Owner:     owner,
+				Repo:      repo,
+				Status:    resp.Response.Status,
+				Err:       apiErr,
+			}
+		}
+	}
+
+	return nil
+}
+
 func cachingRetryableTransport(logger *slog.Logger) http.RoundTripper {
 	retryableClient := retryablehttp.NewClient()
 	retryableClient.Logger = logger
@@ -280,9 +336,14 @@ func AuthenticateWithApp(ctx context.Context, logger *slog.Logger, privateKey []
 }
 
 func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, prNumber int) (string, bool, int64, error) {
-	pr, _, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
+	pr, resp, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
 	if err != nil {
 		return "", false, -1, fmt.Errorf("failed to query GitHub: %w", err)
+	}
+
+	respErr := c.handleResponseError(resp, "GetPullRequest", owner, repo)
+	if respErr != nil {
+		return "", false, -1, respErr
 	}
 
 	var (
@@ -299,9 +360,14 @@ func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr
 }
 
 func (c GHClient) GetPRHeadSHA(ctx context.Context, owner, repo string, prNumber int) (string, error) {
-	pr, _, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
+	pr, resp, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
 	if err != nil {
 		return "", fmt.Errorf("failed to query GitHub for PR HEAD SHA: %w", err)
+	}
+
+	respErr := c.handleResponseError(resp, "GetPullRequest", owner, repo)
+	if respErr != nil {
+		return "", respErr
 	}
 
 	return pr.GetHead().GetSHA(), nil
@@ -459,6 +525,16 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 		if err != nil {
 			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
 		}
+
+		respErr := c.handleResponseError(resp, "ListCheckRunsForRef", owner, repoName)
+		if respErr != nil {
+			var acceptedErr *GitHubAcceptedError
+			if errors.As(respErr, &acceptedErr) {
+				return CIStatusPending, nil
+			}
+			return CIStatusUnknown, respErr
+		}
+
 		checkRuns = append(checkRuns, runs.CheckRuns...)
 
 		if resp.NextPage == 0 {
@@ -495,6 +571,15 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 		s, resp, err := c.client.Repositories.ListStatuses(ctx, owner, repoName, ref, &listOptions)
 		if err != nil {
 			return CIStatusUnknown, fmt.Errorf("failed to query GitHub: %w", err)
+		}
+
+		respErr := c.handleResponseError(resp, "ListStatuses", owner, repoName)
+		if respErr != nil {
+			var acceptedErr *GitHubAcceptedError
+			if errors.As(respErr, &acceptedErr) {
+				return CIStatusPending, nil
+			}
+			return CIStatusUnknown, respErr
 		}
 
 		statuses = append(statuses, s...)

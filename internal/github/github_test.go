@@ -18,11 +18,13 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -1294,4 +1296,123 @@ func TestGetPRHeadSHA_Error(t *testing.T) {
 	ghClient := newErrorReturningClient(t)
 	_, err := ghClient.GetPRHeadSHA(ctx, "owner", "repo", 1)
 	require.Error(t, err)
+}
+
+func TestHandleResponseError(t *testing.T) {
+	t.Parallel()
+
+	logger := testLogger
+	client := GHClient{logger: logger}
+
+	resetTime := time.Now().Add(time.Hour)
+
+	tests := []struct {
+		name       string
+		createResp func() *github.Response
+		expectErr  error
+	}{
+		{
+			name:       "nil response handled gracefully",
+			createResp: func() *github.Response { return nil },
+			expectErr:  nil, // No error expected
+		},
+		{
+			name: "successful response returns no error",
+			createResp: func() *github.Response {
+				return &github.Response{
+					Response: &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{}`)),
+					},
+				}
+			},
+			expectErr: nil,
+		},
+		{
+			name: "rate limit error includes reset time",
+			createResp: func() *github.Response {
+				headers := http.Header{}
+				headers.Set("X-RateLimit-Limit", "60")
+				headers.Set("X-RateLimit-Remaining", "0")
+				headers.Set("X-RateLimit-Reset", fmt.Sprintf("%d", resetTime.Unix()))
+
+				resp := &github.Response{
+					Response: &http.Response{
+						StatusCode: http.StatusForbidden,
+						Header:     headers,
+						Body:       io.NopCloser(strings.NewReader(`{"message": "API rate limit exceeded"}`)),
+					},
+					Rate: github.Rate{
+						Limit:     60,
+						Remaining: 0,
+						Reset:     github.Timestamp{Time: resetTime},
+					},
+				}
+				return resp
+			},
+			expectErr: &GitHubRateLimitError{},
+		},
+		{
+			name: "abuse rate limit error includes retry after",
+			createResp: func() *github.Response {
+				resp := &github.Response{
+					Response: &http.Response{
+						StatusCode: http.StatusForbidden,
+						Status:     "403 Forbidden",
+						Body: io.NopCloser(strings.NewReader(`{
+							"message": "You have triggered an abuse detection mechanism.",
+							"documentation_url": "https://developer.github.com/v3/#abuse-rate-limits"
+						}`)),
+						Header: http.Header{
+							"Retry-After":      []string{"60"},
+							"Content-Type":     []string{"application/json"},
+							"X-GitHub-Request": []string{"ABC123"},
+						},
+					},
+				}
+				return resp
+			},
+			expectErr: &GitHubAbuseRateLimitError{},
+		},
+		{
+			name: "accepted error returns proper error type",
+			createResp: func() *github.Response {
+				return &github.Response{
+					Response: &http.Response{
+						StatusCode: http.StatusAccepted,
+						Body:       io.NopCloser(strings.NewReader(`{}`)),
+					},
+				}
+			},
+			expectErr: &GitHubAcceptedError{},
+		},
+		{
+			name: "generic error includes status code",
+			createResp: func() *github.Response {
+				return &github.Response{
+					Response: &http.Response{
+						StatusCode: http.StatusNotFound,
+						Status:     "404 Not Found",
+						Body:       io.NopCloser(strings.NewReader(`{"message":"Not Found"}`)),
+					},
+				}
+			},
+			expectErr: &GitHubAPIError{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			resp := tt.createResp()
+			err := client.handleResponseError(resp, "TestOp", "owner", "repo")
+
+			if tt.expectErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorAs(t, err, &tt.expectErr)
+			}
+		})
+	}
 }
