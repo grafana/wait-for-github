@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/lmittmann/tint v1.0.7
 	github.com/mattn/go-isatty v0.0.20
-	github.com/migueleliasweb/go-github-mock v1.1.0
+	github.com/migueleliasweb/go-github-mock v1.3.0
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466
 	github.com/stretchr/testify v1.10.0
@@ -28,7 +28,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/goccy/go-yaml v1.11.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
-	github.com/google/go-github/v64 v64.0.0 // indirect
 	github.com/google/go-github/v71 v71.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
