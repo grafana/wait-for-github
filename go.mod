@@ -18,7 +18,7 @@ require (
 	github.com/willabides/actionslog v0.5.1
 	golang.org/x/oauth2 v0.29.0
 	golang.org/x/term v0.30.0
-	golang.org/x/text v0.24.0
+	golang.org/x/text v0.25.0
 )
 
 require (
