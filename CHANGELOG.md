@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.1.2](https://github.com/grafana/wait-for-github/compare/v1.1.1...v1.1.2) (2025-05-08)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** sanitize composite action input ([f3424e7](https://github.com/grafana/wait-for-github/commit/f3424e7e840dddf3802b2513ba3eb7df6c5d8898))
+
+
+### 🏗️ Build System
+
+* **deps:** bump actions/setup-go from 5.3.0 to 5.4.0 ([909d166](https://github.com/grafana/wait-for-github/commit/909d166f1cc93f3f5770a016806879faf657c9cf))
+* **deps:** bump distroless/static-debian12 from `3f2b64e` to `95ea148` ([a8f06ac](https://github.com/grafana/wait-for-github/commit/a8f06ac58f54ff909ef97d7704f8f42396fca4ae))
+* **deps:** bump distroless/static-debian12 from `95ea148` to `3d0f463` ([26a5224](https://github.com/grafana/wait-for-github/commit/26a5224e5c281bb84f11e6c43aa198d27edf342b))
+* **deps:** bump github.com/bradleyfalzon/ghinstallation/v2 ([66adb78](https://github.com/grafana/wait-for-github/commit/66adb788669eb74b30b476d898677b46436a8318))
+* **deps:** bump github.com/golang-jwt/jwt/v4 from 4.5.1 to 4.5.2 ([84e3298](https://github.com/grafana/wait-for-github/commit/84e3298ea5144c9c188415af453cb64dabd02acb))
+* **deps:** bump github.com/migueleliasweb/go-github-mock ([d9d8ed2](https://github.com/grafana/wait-for-github/commit/d9d8ed2c95017ca7f348586f18b63377592892bc))
+* **deps:** bump github/codeql-action from 3.28.11 to 3.28.12 ([9d572c3](https://github.com/grafana/wait-for-github/commit/9d572c3bea7a5300140301af484d2ae61832cc4c))
+* **deps:** bump github/codeql-action from 3.28.12 to 3.28.13 ([28bd767](https://github.com/grafana/wait-for-github/commit/28bd7674eaf836d58921b9886a7f6d35ab679c66))
+* **deps:** bump github/codeql-action from 3.28.13 to 3.28.15 ([aace8a5](https://github.com/grafana/wait-for-github/commit/aace8a527a76e76fdf380fc90800192650af29be))
+* **deps:** bump github/codeql-action from 3.28.15 to 3.28.17 ([625b9b6](https://github.com/grafana/wait-for-github/commit/625b9b6ec917bf120504670d14076d16c084385a))
+* **deps:** bump golang from 1.24.1-alpine3.21 to 1.24.2-alpine3.21 ([2dd8948](https://github.com/grafana/wait-for-github/commit/2dd894829d58a887aebf510975f686623fef93c4))
+* **deps:** bump golang from 1.24.2-alpine3.21 to 1.24.3-alpine3.21 ([bcc235d](https://github.com/grafana/wait-for-github/commit/bcc235d73cf3ecbcf6e8e11e34d8e56a189c81cd))
+* **deps:** bump golang.org/x/crypto from 0.31.0 to 0.35.0 ([fef5ee6](https://github.com/grafana/wait-for-github/commit/fef5ee6fde4640e0cc6ebe43ccb8b4789fc0b88e))
+* **deps:** bump golang.org/x/oauth2 from 0.28.0 to 0.29.0 ([aa0ae2a](https://github.com/grafana/wait-for-github/commit/aa0ae2a229c7b08eafa193604b8869d718be55d8))
+* **deps:** bump golang.org/x/oauth2 from 0.29.0 to 0.30.0 ([c01763e](https://github.com/grafana/wait-for-github/commit/c01763ec6f06b63b18e704347ac3d30d3f70daef))
+* **deps:** bump golang.org/x/term from 0.30.0 to 0.32.0 ([14efdc8](https://github.com/grafana/wait-for-github/commit/14efdc871582dbf48a05504c703d17aaf358b92d))
+* **deps:** bump golang.org/x/text from 0.23.0 to 0.24.0 ([06ef51a](https://github.com/grafana/wait-for-github/commit/06ef51a4f7632fc7bd0347f18eeda03157b30fe0))
+* **deps:** bump golang.org/x/text from 0.24.0 to 0.25.0 ([fe2ce06](https://github.com/grafana/wait-for-github/commit/fe2ce068fcf215003c6019cb406cb6fce02d5727))
+* **deps:** bump golangci/golangci-lint-action from 6.5.0 to 6.5.1 ([420ae75](https://github.com/grafana/wait-for-github/commit/420ae75d0e527f348a07b15f1a0f96270ae0b207))
+* **deps:** bump golangci/golangci-lint-action from 6.5.1 to 6.5.2 ([954c43d](https://github.com/grafana/wait-for-github/commit/954c43d04b0328304c0694411c962ad5ae2ffa6a))
+* **deps:** bump golangci/golangci-lint-action from 6.5.2 to 7.0.0 ([b90a7a0](https://github.com/grafana/wait-for-github/commit/b90a7a0376e3ca7c19c4387601c75ea06073573e))
+* **deps:** bump golangci/golangci-lint-action from 7.0.0 to 8.0.0 ([f2ca5f2](https://github.com/grafana/wait-for-github/commit/f2ca5f2d8b0ba0551db360c40e9613ece77a5697))
+
+
+### 🤖 Continuous Integration
+
+* utilize github.CheckResponse to handle API errors ([082c278](https://github.com/grafana/wait-for-github/commit/082c27843e00dd94eee1399d0ebbbf99620037ae))
+
 ## [1.1.1](https://github.com/grafana/wait-for-github/compare/v1.1.0...v1.1.1) (2025-03-11)
 
 
