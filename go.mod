@@ -11,7 +11,7 @@ require (
 	github.com/lmittmann/tint v1.0.7
 	github.com/mattn/go-isatty v0.0.20
 	github.com/migueleliasweb/go-github-mock v1.3.0
-	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77
+	github.com/olekukonko/tablewriter v1.0.4
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.6
@@ -34,6 +34,8 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/olekukonko/errors v0.0.0-20250405072817-4e6d85265da6 // indirect
+	github.com/olekukonko/ll v0.0.6-0.20250511102614-9564773e9d27 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
