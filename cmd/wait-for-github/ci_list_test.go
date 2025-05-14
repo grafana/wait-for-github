@@ -21,34 +21,47 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/fatih/color"
 	"github.com/grafana/wait-for-github/internal/github"
-	"github.com/olekukonko/tablewriter"
 	"github.com/stretchr/testify/require"
 )
 
 // mockTableWriter records what was written to the table
 type mockTableWriter struct {
 	headers []string
-	rows    []struct {
-		row    []string
-		colors []tablewriter.Colors
+	rows    [][]string
+}
+
+func (m *mockTableWriter) Header(headers ...any) {
+	for _, h := range headers {
+		switch v := h.(type) {
+		case []string:
+			m.headers = append(m.headers, v...)
+		default:
+			panic(fmt.Sprintf("mockTableWriter.Header: unexpected header type %T", v))
+		}
 	}
 }
 
-func (m *mockTableWriter) SetHeader(headers []string) {
-	m.headers = headers
+func (m *mockTableWriter) Bulk(data any) error {
+	switch v := data.(type) {
+	case []string:
+		m.rows = append(m.rows, v)
+	case [][]string:
+		m.rows = append(m.rows, v...)
+	default:
+		return fmt.Errorf("mockTableWriter.Bulk: unexpected data type %T", v)
+	}
+
+	return nil
 }
 
-func (m *mockTableWriter) Rich(row []string, colors []tablewriter.Colors) {
-	m.rows = append(m.rows, struct {
-		row    []string
-		colors []tablewriter.Colors
-	}{row, colors})
-}
-
-func (m *mockTableWriter) Render() {
+func (m *mockTableWriter) Render() error {
 	// Do nothing in tests
+	return nil
 }
+
+var _ tableWriter = (*mockTableWriter)(nil)
 
 // FakeListCIStatusChecker implements the CheckCIStatus interface for testing.
 type FakeListCIStatusChecker struct {
@@ -111,7 +124,7 @@ func TestListChecks(t *testing.T) {
 				},
 			}
 
-			err := listChecks(context.TODO(), cfg, table, true)
+			err := listChecks(t.Context(), cfg, table)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -129,10 +142,8 @@ func TestListChecks_TableRendering(t *testing.T) {
 	tests := []struct {
 		name        string
 		checks      []github.CICheckStatus
-		isTTY       bool
 		wantHeaders []string
 		wantRows    [][]string
-		wantColors  [][]tablewriter.Colors
 	}{
 		{
 			name: "renders colors in TTY",
@@ -143,17 +154,9 @@ func TestListChecks_TableRendering(t *testing.T) {
 					Conclusion: "SUCCESS",
 				},
 			},
-			isTTY:       true,
 			wantHeaders: []string{"Name", "Type", "Status"},
 			wantRows: [][]string{
 				{"test", "Check Run", "Passed"},
-			},
-			wantColors: [][]tablewriter.Colors{
-				{
-					{},
-					{},
-					{tablewriter.FgGreenColor},
-				},
 			},
 		},
 		{
@@ -165,12 +168,10 @@ func TestListChecks_TableRendering(t *testing.T) {
 					Conclusion: "FAILURE",
 				},
 			},
-			isTTY:       false,
 			wantHeaders: []string{"Name", "Type", "Status"},
 			wantRows: [][]string{
 				{"test", "Check Run", "Failed"},
 			},
-			wantColors: [][]tablewriter.Colors{nil},
 		},
 		{
 			name: "multiple checks with different statuses",
@@ -202,17 +203,11 @@ func TestListChecks_TableRendering(t *testing.T) {
 					Conclusion: "SKIPPED",
 				},
 			},
-			isTTY:       true,
 			wantHeaders: []string{"Name", "Type", "Status"},
 			wantRows: [][]string{
 				{"CI / build", "Check Run", "Passed"},
 				{"deploy", "Status", "Unknown"},
 				{"test", "Check Run", "Skipped"},
-			},
-			wantColors: [][]tablewriter.Colors{
-				{{}, {}, {tablewriter.FgGreenColor}},
-				{{}, {}, {tablewriter.FgWhiteColor}},
-				{{}, {}, {tablewriter.FgHiBlackColor}},
 			},
 		},
 		{
@@ -228,31 +223,26 @@ func TestListChecks_TableRendering(t *testing.T) {
 					State:   "",
 				},
 			},
-			isTTY:       true,
 			wantHeaders: []string{"Name", "Type", "Status"},
 			wantRows: [][]string{
 				{"", "Check Run", "Pending"},
 				{"", "Status", "Unknown"},
 			},
-			wantColors: [][]tablewriter.Colors{
-				{{}, {}, {tablewriter.FgYellowColor}},
-				{{}, {}, {tablewriter.FgWhiteColor}},
-			},
 		},
 		{
 			name:        "handles no checks",
 			checks:      []github.CICheckStatus{},
-			isTTY:       true,
 			wantHeaders: []string{"Status"},
 			wantRows: [][]string{
 				{"No CI checks found"},
 			},
-			wantColors: [][]tablewriter.Colors{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			table := &mockTableWriter{}
 			cfg := &checkListConfig{
 				ciConfig: ciConfig{
@@ -265,20 +255,79 @@ func TestListChecks_TableRendering(t *testing.T) {
 				},
 			}
 
-			err := listChecks(context.TODO(), cfg, table, tt.isTTY)
+			err := listChecks(t.Context(), cfg, table)
 			require.NoError(t, err)
 
 			require.Equal(t, tt.wantHeaders, table.headers)
 			require.Equal(t, len(tt.wantRows), len(table.rows))
 
 			for i, wantRow := range tt.wantRows {
-				require.Equal(t, wantRow, table.rows[i].row)
-				if tt.isTTY && len(tt.wantColors) > i && tt.wantColors[i] != nil {
-					require.Equal(t, tt.wantColors[i], table.rows[i].colors)
-				} else {
-					require.Nil(t, table.rows[i].colors)
-				}
+				require.Equal(t, wantRow, table.rows[i])
 			}
 		})
 	}
+}
+
+// Tests with `color.NoColor` set to `false` to force colour output.
+func TestListChecksColour(t *testing.T) {
+	oldNoColor := color.NoColor
+	color.NoColor = false
+
+	t.Cleanup(func() {
+		color.NoColor = oldNoColor
+	})
+
+	checks := []github.CICheckStatus{
+		github.CheckRun{
+			Name:       "build",
+			Status:     "COMPLETED",
+			Conclusion: "SUCCESS",
+			CheckSuite: github.CheckSuiteInfo{
+				App: github.AppInfo{
+					Name: "",
+				},
+				WorkflowRun: struct {
+					Workflow github.WorkflowInfo
+				}{
+					Workflow: github.WorkflowInfo{
+						Name: "CI",
+					},
+				},
+			},
+		},
+		github.StatusContext{
+			Context: "deploy",
+			State:   "PENDING",
+		},
+		github.CheckRun{
+			Name:       "test",
+			Status:     "COMPLETED",
+			Conclusion: "SKIPPED",
+		},
+	}
+
+	table := &mockTableWriter{}
+	cfg := &checkListConfig{
+		ciConfig: ciConfig{
+			owner: "owner",
+			repo:  "repo",
+			ref:   "ref",
+		},
+		githubClient: &FakeListCIStatusChecker{
+			checks: checks,
+		},
+	}
+
+	err := listChecks(t.Context(), cfg, table)
+	require.NoError(t, err)
+
+	require.Equal(t, len(checks), len(table.rows))
+
+	expectedRows := [][]string{
+		{"CI / \x1b[1mbuild\x1b[22m", "Check Run", "\x1b[32mPassed\x1b[0m"},
+		{"\x1b[1mdeploy\x1b[22m", "Status", "\x1b[37mUnknown\x1b[0m"},
+		{"\x1b[1mtest\x1b[22m", "Check Run", "\x1b[90mSkipped\x1b[0m"},
+	}
+
+	require.Equal(t, expectedRows, table.rows)
 }
