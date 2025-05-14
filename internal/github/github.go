@@ -20,12 +20,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
-
-	"log/slog"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/fatih/color"
@@ -35,6 +34,15 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/shurcooL/graphql"
 	"golang.org/x/oauth2"
+)
+
+var (
+	bold      = color.New(color.Bold).SprintFunc()
+	fgGreen   = color.New(color.FgGreen).SprintFunc()
+	fgHiBlack = color.New(color.FgHiBlack).SprintFunc()
+	fgRed     = color.New(color.FgRed).SprintFunc()
+	fgWhite   = color.New(color.FgWhite).SprintFunc()
+	fgYellow  = color.New(color.FgYellow).SprintFunc()
 )
 
 type CheckPRMerged interface {
@@ -90,17 +98,17 @@ const (
 func (c CIStatus) String() string {
 	switch c {
 	case CIStatusPassed:
-		return "passed"
+		return fgGreen("passed")
 	case CIStatusFailed:
-		return "failed"
+		return fgRed("failed")
 	case CIStatusPending:
-		return "pending"
-	case CIStatusUnknown:
-		return "unknown"
+		return fgYellow("pending")
 	case CIStatusSkipped:
-		return "skipped"
+		return fgHiBlack("skipped")
+	case CIStatusUnknown:
+		fallthrough
 	default:
-		return "unknown"
+		return fgWhite("unknown")
 	}
 }
 
@@ -138,7 +146,7 @@ type CheckRun struct {
 }
 
 func (c CheckRun) String() string {
-	boldName := color.New(color.Bold).Sprint(c.Name)
+	boldName := bold(c.Name)
 	if c.CheckSuite.WorkflowRun.Workflow.Name == "" {
 		return boldName
 	}
@@ -180,7 +188,7 @@ type StatusContext struct {
 }
 
 func (s StatusContext) String() string {
-	return color.New(color.Bold).Sprint(s.Context)
+	return bold(s.Context)
 }
 
 func (s StatusContext) Outcome() CIStatus {

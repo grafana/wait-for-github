@@ -18,15 +18,20 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 
+	"github.com/fatih/color"
+	"github.com/grafana/wait-for-github/internal/ansi"
 	"github.com/grafana/wait-for-github/internal/github"
-	"github.com/mattn/go-isatty"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"golang.org/x/text/transform"
 )
 
 type checkListConfig struct {
@@ -34,43 +39,48 @@ type checkListConfig struct {
 	githubClient github.GetDetailedCIStatus
 }
 
-var caser = cases.Title(language.English)
-
-func statusColor(check github.CICheckStatus) tablewriter.Colors {
-	switch check.Outcome() {
-	case github.CIStatusPassed:
-		return tablewriter.Colors{tablewriter.FgGreenColor}
-	case github.CIStatusFailed:
-		return tablewriter.Colors{tablewriter.FgRedColor}
-	case github.CIStatusPending:
-		return tablewriter.Colors{tablewriter.FgYellowColor}
-	case github.CIStatusSkipped:
-		return tablewriter.Colors{tablewriter.FgHiBlackColor}
-	default:
-		return tablewriter.Colors{tablewriter.FgWhiteColor}
-	}
-}
+var caser = ansi.NewANSITransformer(cases.Title(language.English))
 
 // tableWriter is a wrapper around the tablewriter library, provided so that
 // tests can mock the table writing process
 type tableWriter interface {
-	SetHeader(headers []string)
-	Rich(row []string, colors []tablewriter.Colors)
-	Render()
+	Header(headers ...any)
+	Bulk(data any) error
+	Render() error
 }
+
+type realTableWriter = tablewriter.Table
+
+var _ tableWriter = (*realTableWriter)(nil)
 
 func newTableWriter(w io.Writer) (tableWriter, error) {
-	tw := tablewriter.NewWriter(w)
-	tw.SetAutoWrapText(false)
+	colorConfig := renderer.ColorizedConfig{
+		Header: renderer.Tint{
+			FG: renderer.Colors{color.FgBlack, color.Bold},
+		},
+		Border:    renderer.Tint{FG: renderer.Colors{color.FgWhite}},
+		Separator: renderer.Tint{FG: renderer.Colors{color.FgWhite}},
 
-	if err := tw.SetUnicodeHV(tablewriter.Double, tablewriter.Regular); err != nil {
-		return nil, err
+		Column: renderer.Tint{BG: renderer.Colors{color.Reset}},
 	}
 
-	return tw, nil
+	table := tablewriter.NewTable(w,
+		tablewriter.WithRenderer(renderer.NewColorized(
+			colorConfig,
+		)),
+		tablewriter.WithConfig(tablewriter.Config{
+			Row: tw.CellConfig{
+				Formatting: tw.CellFormatting{
+					AutoWrap: tw.WrapNone,
+				},
+			},
+		}),
+	)
+
+	return table, nil
 }
 
-func listChecks(ctx context.Context, cfg *checkListConfig, table tableWriter, useColors bool) error {
+func listChecks(ctx context.Context, cfg *checkListConfig, table tableWriter) error {
 	checks, err := cfg.githubClient.GetDetailedCIStatus(ctx, cfg.owner, cfg.repo, cfg.ref)
 	if err != nil {
 		return err
@@ -78,34 +88,37 @@ func listChecks(ctx context.Context, cfg *checkListConfig, table tableWriter, us
 
 	if len(checks) == 0 {
 		// For empty results, still use the table but with a single message row
-		table.SetHeader([]string{"Status"})
-		table.Rich([]string{"No CI checks found"}, nil)
-		table.Render()
+		table.Header([]string{"Status"})
+
+		if err := table.Bulk([]string{"No CI checks found"}); err != nil {
+			return fmt.Errorf("failed to write table: %w", err)
+		}
+
+		if err := table.Render(); err != nil {
+			return fmt.Errorf("failed to render table: %w", err)
+		}
 
 		return nil
 	}
 
-	table.SetHeader([]string{"Name", "Type", "Status"})
+	table.Header([]string{"Name", "Type", "Status"})
 
+	var data [][]string
 	for _, check := range checks {
-		var colors []tablewriter.Colors
-		if useColors {
-			colors = []tablewriter.Colors{
-				{},
-				{},
-				statusColor(check),
-			}
-		}
+		checkOutcomeString, _, _ := transform.String(caser, check.Outcome().String())
 
-		table.Rich([]string{
+		data = append(data, []string{
 			check.String(),
 			check.Type(),
-			caser.String(check.Outcome().String()),
-		}, colors)
+			checkOutcomeString,
+		})
 	}
 
-	table.Render()
-	return nil
+	if err := table.Bulk(data); err != nil {
+		return fmt.Errorf("failed to write table: %w", err)
+	}
+
+	return table.Render()
 }
 
 func ciListCommand(cfg *config) *cli.Command {
@@ -130,12 +143,10 @@ func ciListCommand(cfg *config) *cli.Command {
 				return err
 			}
 
-			useColor := isatty.IsTerminal(w.Fd()) && os.Getenv("NO_COLOR") == ""
-
 			return listChecks(c.Context, &checkListConfig{
 				ciConfig:     ciConf,
 				githubClient: githubClient,
-			}, table, useColor)
+			}, table)
 		},
 	}
 }
