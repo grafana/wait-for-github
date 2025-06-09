@@ -39,7 +39,6 @@ type checkListConfig struct {
 	githubClient github.GetDetailedCIStatus
 }
 
-var caser = ansi.NewANSITransformer(cases.Title(language.English))
 
 // tableWriter is a wrapper around the tablewriter library, provided so that
 // tests can mock the table writing process
@@ -105,6 +104,7 @@ func listChecks(ctx context.Context, cfg *checkListConfig, table tableWriter) er
 
 	var data [][]string
 	for _, check := range checks {
+		caser := ansi.NewANSITransformer(cases.Title(language.English))
 		checkOutcomeString, _, _ := transform.String(caser, check.Outcome().String())
 
 		data = append(data, []string{
