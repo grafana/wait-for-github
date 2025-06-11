@@ -1,5 +1,65 @@
 # Changelog
 
+## [1.2.0](https://github.com/grafana/wait-for-github/compare/v1.1.1...v1.2.0) (2025-06-11)
+
+
+### 🎉 Features
+
+* port to `tablewriter` 1.0.4 ([7eecb18](https://github.com/grafana/wait-for-github/commit/7eecb18919b5d1fc98620cbe20d9b2dfc1f3fa8a))
+
+
+### 🐛 Bug Fixes
+
+* **ci:** sanitize composite action input ([f3424e7](https://github.com/grafana/wait-for-github/commit/f3424e7e840dddf3802b2513ba3eb7df6c5d8898))
+* don't share non-thread-safe ANSITransformer instance ([4014dfd](https://github.com/grafana/wait-for-github/commit/4014dfd34acf05233d60935f0ea59cd6d601a1ca))
+
+
+### 🏗️ Build System
+
+* **deps:** bump actions/setup-go from 5.3.0 to 5.4.0 ([909d166](https://github.com/grafana/wait-for-github/commit/909d166f1cc93f3f5770a016806879faf657c9cf))
+* **deps:** bump actions/setup-go from 5.4.0 to 5.5.0 ([be2f69a](https://github.com/grafana/wait-for-github/commit/be2f69a87e7bc9f92b766dc4aed3266892c14e3b))
+* **deps:** bump distroless/static-debian12 from `3d0f463` to `d9f9472` ([517adda](https://github.com/grafana/wait-for-github/commit/517adda2455ed2e4236d1d75a5e21b6631d26c05))
+* **deps:** bump distroless/static-debian12 from `3f2b64e` to `95ea148` ([a8f06ac](https://github.com/grafana/wait-for-github/commit/a8f06ac58f54ff909ef97d7704f8f42396fca4ae))
+* **deps:** bump distroless/static-debian12 from `95ea148` to `3d0f463` ([26a5224](https://github.com/grafana/wait-for-github/commit/26a5224e5c281bb84f11e6c43aa198d27edf342b))
+* **deps:** bump github.com/bradleyfalzon/ghinstallation/v2 ([c8ea677](https://github.com/grafana/wait-for-github/commit/c8ea677fc4d8d200e79131c9053ed52287e28836))
+* **deps:** bump github.com/bradleyfalzon/ghinstallation/v2 ([66adb78](https://github.com/grafana/wait-for-github/commit/66adb788669eb74b30b476d898677b46436a8318))
+* **deps:** bump github.com/cloudflare/circl from 1.3.7 to 1.6.1 ([038ce96](https://github.com/grafana/wait-for-github/commit/038ce96dd5dc5546b6560a4aa9152ed60a38eaaf))
+* **deps:** bump github.com/golang-jwt/jwt/v4 from 4.5.1 to 4.5.2 ([84e3298](https://github.com/grafana/wait-for-github/commit/84e3298ea5144c9c188415af453cb64dabd02acb))
+* **deps:** bump github.com/lmittmann/tint from 1.0.7 to 1.1.0 ([8ef1977](https://github.com/grafana/wait-for-github/commit/8ef19777f1a4fc0e1bf723ab58d6948425e7bc60))
+* **deps:** bump github.com/lmittmann/tint from 1.1.0 to 1.1.1 ([c9434af](https://github.com/grafana/wait-for-github/commit/c9434af95a92edddcc844ab4de4f3e855cf0243f))
+* **deps:** bump github.com/lmittmann/tint from 1.1.1 to 1.1.2 ([1490b05](https://github.com/grafana/wait-for-github/commit/1490b05ad06b6fdbae29d50aab9dd35d620dc5fa))
+* **deps:** bump github.com/migueleliasweb/go-github-mock ([d9d8ed2](https://github.com/grafana/wait-for-github/commit/d9d8ed2c95017ca7f348586f18b63377592892bc))
+* **deps:** bump github.com/olekukonko/tablewriter ([d55c8e6](https://github.com/grafana/wait-for-github/commit/d55c8e66e3ae3eb9f3b02b8d94218cfc7bc8aaca))
+* **deps:** bump github.com/olekukonko/tablewriter from 1.0.4 to 1.0.5 ([bdee2d1](https://github.com/grafana/wait-for-github/commit/bdee2d180a5c88be659836fe9d32474e99d36daf))
+* **deps:** bump github.com/olekukonko/tablewriter from 1.0.5 to 1.0.6 ([77dd38e](https://github.com/grafana/wait-for-github/commit/77dd38ef13f4bac62c1b9b3658903bfd9a3b767a))
+* **deps:** bump github.com/olekukonko/tablewriter from 1.0.6 to 1.0.7 ([43c8d13](https://github.com/grafana/wait-for-github/commit/43c8d13b60bbbc050a548e1a6295eee247caea79))
+* **deps:** bump github/codeql-action from 3.28.11 to 3.28.12 ([9d572c3](https://github.com/grafana/wait-for-github/commit/9d572c3bea7a5300140301af484d2ae61832cc4c))
+* **deps:** bump github/codeql-action from 3.28.12 to 3.28.13 ([28bd767](https://github.com/grafana/wait-for-github/commit/28bd7674eaf836d58921b9886a7f6d35ab679c66))
+* **deps:** bump github/codeql-action from 3.28.13 to 3.28.15 ([aace8a5](https://github.com/grafana/wait-for-github/commit/aace8a527a76e76fdf380fc90800192650af29be))
+* **deps:** bump github/codeql-action from 3.28.15 to 3.28.17 ([625b9b6](https://github.com/grafana/wait-for-github/commit/625b9b6ec917bf120504670d14076d16c084385a))
+* **deps:** bump github/codeql-action from 3.28.17 to 3.28.18 ([3fc5829](https://github.com/grafana/wait-for-github/commit/3fc582926c7062ad663a7626f054e1fe7f72cc11))
+* **deps:** bump github/codeql-action from 3.28.18 to 3.28.19 ([0ed6d0e](https://github.com/grafana/wait-for-github/commit/0ed6d0e93705b04b68ed5ddebfc08d1aeebf25db))
+* **deps:** bump golang from 1.24.1-alpine3.21 to 1.24.2-alpine3.21 ([2dd8948](https://github.com/grafana/wait-for-github/commit/2dd894829d58a887aebf510975f686623fef93c4))
+* **deps:** bump golang from 1.24.2-alpine3.21 to 1.24.3-alpine3.21 ([bcc235d](https://github.com/grafana/wait-for-github/commit/bcc235d73cf3ecbcf6e8e11e34d8e56a189c81cd))
+* **deps:** bump golang from 1.24.3-alpine3.21 to 1.24.4-alpine3.21 ([bee1401](https://github.com/grafana/wait-for-github/commit/bee140142eb760d6195c697e4797a914db67f87b))
+* **deps:** bump golang.org/x/crypto from 0.31.0 to 0.35.0 ([fef5ee6](https://github.com/grafana/wait-for-github/commit/fef5ee6fde4640e0cc6ebe43ccb8b4789fc0b88e))
+* **deps:** bump golang.org/x/oauth2 from 0.28.0 to 0.29.0 ([aa0ae2a](https://github.com/grafana/wait-for-github/commit/aa0ae2a229c7b08eafa193604b8869d718be55d8))
+* **deps:** bump golang.org/x/oauth2 from 0.29.0 to 0.30.0 ([c01763e](https://github.com/grafana/wait-for-github/commit/c01763ec6f06b63b18e704347ac3d30d3f70daef))
+* **deps:** bump golang.org/x/term from 0.30.0 to 0.32.0 ([14efdc8](https://github.com/grafana/wait-for-github/commit/14efdc871582dbf48a05504c703d17aaf358b92d))
+* **deps:** bump golang.org/x/text from 0.23.0 to 0.24.0 ([06ef51a](https://github.com/grafana/wait-for-github/commit/06ef51a4f7632fc7bd0347f18eeda03157b30fe0))
+* **deps:** bump golang.org/x/text from 0.24.0 to 0.25.0 ([fe2ce06](https://github.com/grafana/wait-for-github/commit/fe2ce068fcf215003c6019cb406cb6fce02d5727))
+* **deps:** bump golang.org/x/text from 0.25.0 to 0.26.0 ([9c13e15](https://github.com/grafana/wait-for-github/commit/9c13e154c649290a9bb07a75f351cca8330a67a1))
+* **deps:** bump golangci/golangci-lint-action from 6.5.0 to 6.5.1 ([420ae75](https://github.com/grafana/wait-for-github/commit/420ae75d0e527f348a07b15f1a0f96270ae0b207))
+* **deps:** bump golangci/golangci-lint-action from 6.5.1 to 6.5.2 ([954c43d](https://github.com/grafana/wait-for-github/commit/954c43d04b0328304c0694411c962ad5ae2ffa6a))
+* **deps:** bump golangci/golangci-lint-action from 6.5.2 to 7.0.0 ([b90a7a0](https://github.com/grafana/wait-for-github/commit/b90a7a0376e3ca7c19c4387601c75ea06073573e))
+* **deps:** bump golangci/golangci-lint-action from 7.0.0 to 8.0.0 ([f2ca5f2](https://github.com/grafana/wait-for-github/commit/f2ca5f2d8b0ba0551db360c40e9613ece77a5697))
+* **docker:** optimise build performance with cache mounts ([71e31ef](https://github.com/grafana/wait-for-github/commit/71e31ef09f3745e7bd6e37adfe54532e6cea10bc))
+
+
+### 🤖 Continuous Integration
+
+* utilize github.CheckResponse to handle API errors ([082c278](https://github.com/grafana/wait-for-github/commit/082c27843e00dd94eee1399d0ebbbf99620037ae))
+
 ## [1.1.1](https://github.com/grafana/wait-for-github/compare/v1.1.0...v1.1.1) (2025-03-11)
 
 
