@@ -14,6 +14,7 @@ require (
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.7
+	github.com/urfave/cli/v3 v3.3.8
 	github.com/willabides/actionslog v0.5.1
 	golang.org/x/oauth2 v0.30.0
 	golang.org/x/term v0.33.0
