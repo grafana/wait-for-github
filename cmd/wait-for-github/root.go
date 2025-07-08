@@ -26,14 +26,14 @@ import (
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/logging"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 type cmdFunc func(cfg *config) *cli.Command
 
 var defaultLogLevel logging.Level = logging.Level(slog.LevelInfo)
 
-func root() *cli.App {
+func root() *cli.Command {
 	var cfg config
 
 	// give a timeout context to all commands
@@ -41,25 +41,24 @@ func root() *cli.App {
 	for _, cf := range []cmdFunc{ciCommand, prCommand} {
 		cmd := cf(&cfg)
 		action := cmd.Action
-		cmd.Action = func(c *cli.Context) error {
-			timeoutCtx, cancel := context.WithTimeout(c.Context, cfg.globalTimeout)
+		cmd.Action = func(c context.Context, cmd *cli.Command) error {
+			timeoutCtx, cancel := context.WithTimeout(c, cfg.globalTimeout)
 			defer cancel()
-			c.Context = timeoutCtx
 
-			return action(c)
+			return action(timeoutCtx, cmd)
 		}
 		commands = append(commands, cmd)
 	}
 
-	return &cli.App{
+	return &cli.Command{
 		Name:  "wait-for-github",
 		Usage: "Wait for things to happen on GitHub",
 		Flags: []cli.Flag{
-			&cli.GenericFlag{
+			&cli.StringFlag{
 				Name:    "log-level",
 				Aliases: []string{"l"},
 				Usage:   fmt.Sprintf("Set the log level. Valid levels are: %s.", strings.Join(validLogLevels(), ", ")),
-				Value:   &defaultLogLevel,
+				Value:   defaultLogLevel.String(),
 			},
 			&cli.StringFlag{
 				Name:    "github-app-private-key-path",
@@ -67,50 +66,64 @@ func root() *cli.App {
 				Usage:   "Path to the GitHub App private key",
 			},
 			&cli.StringFlag{
-				Name:    "github-app-private-key",
-				Usage:   "Contents of the GitHub App private key",
-				EnvVars: []string{"GITHUB_APP_PRIVATE_KEY"},
+				Name:  "github-app-private-key",
+				Usage: "Contents of the GitHub App private key",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_APP_PRIVATE_KEY"),
+				),
 			},
 			&cli.Int64Flag{
-				Name:    "github-app-id",
-				Usage:   "GitHub App ID",
-				EnvVars: []string{"GITHUB_APP_ID"},
+				Name:  "github-app-id",
+				Usage: "GitHub App ID",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_APP_ID"),
+				),
 			},
 			&cli.Int64Flag{
-				Name:    "github-app-installation-id",
-				Usage:   "GitHub App installation ID",
-				EnvVars: []string{"GITHUB_APP_INSTALLATION_ID"},
+				Name:  "github-app-installation-id",
+				Usage: "GitHub App installation ID",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_APP_INSTALLATION_ID"),
+				),
 			},
 			&cli.StringFlag{
 				Name: "github-token",
 				Usage: "GitHub token. If not provided, the app will try to use the " +
 					"GitHub App authentication mechanism.",
-				EnvVars: []string{"GITHUB_TOKEN"},
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_TOKEN"),
+				),
 			},
 			&cli.DurationFlag{
-				Name:    "recheck-interval",
-				Usage:   "Interval after which to recheck GitHub.",
-				EnvVars: []string{"RECHECK_INTERVAL"},
-				Value:   time.Duration(30 * time.Second),
+				Name:  "recheck-interval",
+				Usage: "Interval after which to recheck GitHub.",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("RECHECK_INTERVAL"),
+				),
+				Value: time.Duration(30 * time.Second),
 			},
 			&cli.DurationFlag{
-				Name:    "pending-recheck-time",
-				Usage:   "Time after which to recheck the pending status on GitHub.",
-				EnvVars: []string{"PENDING_RECHECK_TIME"},
-				Value:   5 * time.Second,
+				Name:  "pending-recheck-time",
+				Usage: "Time after which to recheck the pending status on GitHub.",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("PENDING_RECHECK_TIME"),
+				),
+				Value: 5 * time.Second,
 			},
 			&cli.DurationFlag{
-				Name:    "timeout",
-				Usage:   "Timeout after which to stop checking GitHub.",
-				EnvVars: []string{"TIMEOUT"},
-				Value:   time.Duration(7 * 24 * time.Hour),
+				Name:  "timeout",
+				Usage: "Timeout after which to stop checking GitHub.",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("TIMEOUT"),
+				),
+				Value: time.Duration(7 * 24 * time.Hour),
 			},
 		},
 		Commands: commands,
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			var err error
-			cfg, err = handleGlobalConfig(c)
-			return err
+			cfg, err = handleGlobalConfig(ctx, cmd)
+			return ctx, err
 		},
 	}
 }
@@ -119,20 +132,19 @@ func validLogLevels() []string {
 	return []string{"debug", "info", "warn", "error"}
 }
 
-func handleGlobalConfig(c *cli.Context) (config, error) {
+func handleGlobalConfig(ctx context.Context, cmd *cli.Command) (config, error) {
 	var cfg config
-	ctx := c.Context
 
 	logging.SetupLogger(slog.Level(defaultLogLevel))
 	cfg.logger = slog.Default()
 
 	cfg.logger.DebugContext(ctx, "debug logging enabled")
 
-	cfg.recheckInterval = c.Duration("recheck-interval")
-	cfg.pendingRecheckTime = c.Duration("pending-recheck-time")
-	cfg.globalTimeout = c.Duration("timeout")
+	cfg.recheckInterval = cmd.Duration("recheck-interval")
+	cfg.pendingRecheckTime = cmd.Duration("pending-recheck-time")
+	cfg.globalTimeout = cmd.Duration("timeout")
 
-	token := c.String("github-token")
+	token := cmd.String("github-token")
 	if token != "" {
 		cfg.logger.DebugContext(ctx, "will use github token for authentication")
 		cfg.logger.DebugContext(ctx, "using token starting with", "token", token[:10])
@@ -141,9 +153,9 @@ func handleGlobalConfig(c *cli.Context) (config, error) {
 		return cfg, nil
 	}
 
-	privateKey := []byte(c.String("github-app-private-key"))
+	privateKey := []byte(cmd.String("github-app-private-key"))
 
-	file := c.String("github-app-private-key-path")
+	file := cmd.String("github-app-private-key-path")
 	if file != "" {
 		var err error
 		privateKey, err = os.ReadFile(file)
@@ -152,12 +164,12 @@ func handleGlobalConfig(c *cli.Context) (config, error) {
 		}
 	}
 
-	appId := c.Int64("github-app-id")
-	installationID := c.Int64("github-app-installation-id")
+	appId := cmd.Int64("github-app-id")
+	installationID := cmd.Int64("github-app-installation-id")
 
 	if len(privateKey) == 0 || appId == 0 || installationID == 0 {
 		cfg.logger.ErrorContext(ctx, "must provide either a GitHub token or a GitHub app private key, app ID and installation ID")
-		cli.ShowAppHelpAndExit(c, 1)
+		cli.ShowAppHelpAndExit(cmd, 1)
 	}
 
 	cfg.AuthInfo = github.AuthInfo{

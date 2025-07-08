@@ -18,13 +18,12 @@ package main
 
 import (
 	"context"
-	"flag"
 	"testing"
 	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // FakeCIStatusChecker implements the CheckCIStatus interface.
@@ -247,19 +246,25 @@ func TestParseCIArguments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			flagSet := flag.NewFlagSet("test", flag.ContinueOnError)
-			err := flagSet.Parse(tt.args)
-			require.NoError(t, err)
-			parentCliContext := cli.NewContext(nil, nil, nil)
-			parentCliContext.App = cli.NewApp()
-			cliContext := cli.NewContext(nil, flagSet, parentCliContext)
+			ctx := context.Background()
+			rootCmd := &cli.Command{Name: "root"}
+			ciCmd := &cli.Command{
+				Name: "ci",
+				Action: func(ctx context.Context, c *cli.Command) error {
+					got, err := parseCIArguments(ctx, c, testLogger, "ci")
+					if tt.wantErr != nil {
+						require.ErrorAs(t, err, &tt.wantErr)
+					}
 
-			got, err := parseCIArguments(cliContext, testLogger, "ci")
-			if tt.wantErr != nil {
-				require.ErrorAs(t, err, &tt.wantErr)
+					require.Equal(t, tt.want, got)
+					return nil
+				},
 			}
-
-			require.Equal(t, tt.want, got)
+			rootCmd.Commands = []*cli.Command{ciCmd}
+			finalArgs := make([]string, 0, len(tt.args)+1)
+			finalArgs = append(finalArgs, "root", "ci")
+			finalArgs = append(finalArgs, tt.args...)
+			_ = rootCmd.Run(ctx, finalArgs)
 		})
 	}
 }

@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"syscall"
@@ -22,7 +21,7 @@ func (t *TestCheck) Check(ctx context.Context) error {
 }
 
 var testLogger = slog.New(slog.NewTextHandler(
-	io.Discard,
+	os.Stderr,
 	&slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
