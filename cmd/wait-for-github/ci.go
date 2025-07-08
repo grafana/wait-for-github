@@ -25,7 +25,7 @@ import (
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/logging"
 	"github.com/grafana/wait-for-github/internal/utils"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"log/slog"
 )
@@ -75,14 +75,14 @@ func extractRefFromPrURL(url string) (owner, repo, ref string) {
 	return owner, repo, ref
 }
 
-func parseCIArguments(c *cli.Context, logger *slog.Logger, command string) (ciConfig, error) {
+func parseCIArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger, command string) (ciConfig, error) {
 	var owner, repo, ref string
 
-	logger.DebugContext(c.Context, "parseCIArguments", "args", c.Args(), "nArgs", c.NArg())
+	logger.DebugContext(ctx, "parseCIArguments", "args", cmd.Args(), "nArgs", cmd.NArg())
 
-	args := c.Args()
+	args := cmd.Args()
 
-	switch nArgs := c.NArg(); nArgs {
+	switch nArgs := cmd.NArg(); nArgs {
 	// If a single argument is provided, it is expected to be either a commit URL or PR URL
 	case 1:
 		url := args.Get(0)
@@ -108,9 +108,9 @@ func parseCIArguments(c *cli.Context, logger *slog.Logger, command string) (ciCo
 		// If the number of arguments is not as expected, show the usage message and error out
 		// I think we should be able to do `cli.ShowCommandHelp(c, "ci")` here,
 		// but it doesn't work, says "unknown command ci". So we go through the parent command.
-		lineage := c.Lineage()
+		lineage := cmd.Lineage()
 		parent := lineage[1]
-		err := cli.ShowCommandHelp(parent, command)
+		err := cli.ShowCommandHelp(ctx, parent, command)
 		if err != nil {
 			return ciConfig{}, err
 		}
@@ -122,8 +122,8 @@ func parseCIArguments(c *cli.Context, logger *slog.Logger, command string) (ciCo
 		owner:    owner,
 		repo:     repo,
 		ref:      ref,
-		checks:   c.StringSlice("check"),
-		excludes: c.StringSlice("exclude"),
+		checks:   cmd.StringSlice("check"),
+		excludes: cmd.StringSlice("exclude"),
 	}, nil
 }
 
@@ -218,20 +218,20 @@ func ciCommand(cfg *config) *cli.Command {
 		Name:      "ci",
 		Usage:     "Wait for CI to be finished",
 		ArgsUsage: "<https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]",
-		Action: func(c *cli.Context) error {
-			ciConf, err := parseCIArguments(c, cfg.logger, "ci")
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			ciConf, err := parseCIArguments(ctx, cmd, cfg.logger, "ci")
 			if err != nil {
 				return err
 			}
 
-			githubClient, err := github.NewGithubClient(c.Context, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
+			githubClient, err := github.NewGithubClient(ctx, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}
 
-			return checkCIStatus(c.Context, githubClient, cfg, &ciConf)
+			return checkCIStatus(ctx, githubClient, cfg, &ciConf)
 		},
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			ciListCommand(cfg),
 		},
 		Flags: []cli.Flag{
@@ -242,9 +242,9 @@ func ciCommand(cfg *config) *cli.Command {
 				},
 				Usage: "Check the status of a specific CI check. " +
 					"By default, the status of all checks is checked.",
-				EnvVars: []string{
-					"GITHUB_CI_CHECKS",
-				},
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_CI_CHECKS"),
+				),
 			},
 			&cli.StringSliceFlag{
 				Name: "exclude",
@@ -254,9 +254,9 @@ func ciCommand(cfg *config) *cli.Command {
 				Usage: "Exclude the status of a specific CI check. " +
 					"Argument ignored if checks are specified individually. " +
 					"By default, the status of all checks is checked.",
-				EnvVars: []string{
-					"GITHUB_CI_EXCLUDE",
-				},
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_CI_EXCLUDE"),
+				),
 			},
 		},
 	}

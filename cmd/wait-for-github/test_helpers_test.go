@@ -17,6 +17,7 @@
 package main
 
 import (
+	"io"
 	"log/slog"
 )
 
@@ -25,4 +26,6 @@ var (
 	one  = 1
 )
 
-var testLogger = slog.New(slog.DiscardHandler)
+var testLogger = slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+	Level: slog.LevelDebug,
+}))

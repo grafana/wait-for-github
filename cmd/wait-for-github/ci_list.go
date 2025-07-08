@@ -28,7 +28,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/olekukonko/tablewriter/renderer"
 	"github.com/olekukonko/tablewriter/tw"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"golang.org/x/text/transform"
@@ -38,7 +38,6 @@ type checkListConfig struct {
 	ciConfig
 	githubClient github.GetDetailedCIStatus
 }
-
 
 // tableWriter is a wrapper around the tablewriter library, provided so that
 // tests can mock the table writing process
@@ -126,13 +125,13 @@ func ciListCommand(cfg *config) *cli.Command {
 		Name:      "list",
 		Usage:     "List all CI checks and their status",
 		ArgsUsage: "<https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]",
-		Action: func(c *cli.Context) error {
-			ciConf, err := parseCIArguments(c, cfg.logger, "list")
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			ciConf, err := parseCIArguments(ctx, cmd, cfg.logger, "list")
 			if err != nil {
 				return err
 			}
 
-			githubClient, err := github.NewGithubClient(c.Context, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
+			githubClient, err := github.NewGithubClient(ctx, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}
@@ -143,7 +142,7 @@ func ciListCommand(cfg *config) *cli.Command {
 				return err
 			}
 
-			return listChecks(c.Context, &checkListConfig{
+			return listChecks(ctx, &checkListConfig{
 				ciConfig:     ciConf,
 				githubClient: githubClient,
 			}, table)
