@@ -19,14 +19,13 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io/fs"
 	"testing"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // fakeGithubClientPRCheck implements the checkMergedAndOverallCI interface
@@ -275,19 +274,27 @@ func TestParsePRArguments(t *testing.T) {
 		tt := tt
 
 		t.Run(tt.name, func(t *testing.T) {
-			flagSet := flag.NewFlagSet("test", flag.ContinueOnError)
-			err := flagSet.Parse(tt.args)
-			require.NoError(t, err)
-			parentCliContext := cli.NewContext(nil, nil, nil)
-			parentCliContext.App = cli.NewApp()
-			cliContext := cli.NewContext(nil, flagSet, parentCliContext)
-
-			got, err := parsePRArguments(cliContext, testLogger)
-			if tt.wantErr != nil {
-				require.ErrorAs(t, err, &tt.wantErr)
-				require.Equal(t, err, tt.wantErr)
+			ctx := t.Context()
+			rootCmd := &cli.Command{}
+			prCmd := &cli.Command{
+				Name: "pr",
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					got, err := parsePRArguments(ctx, cmd, testLogger)
+					if tt.wantErr != nil {
+						require.ErrorAs(t, err, &tt.wantErr)
+						require.Equal(t, err, tt.wantErr)
+					}
+					require.Equal(t, tt.want, got)
+					return nil
+				},
 			}
-			require.Equal(t, tt.want, got)
+			rootCmd.Commands = []*cli.Command{
+				prCmd,
+			}
+			finalArgs := make([]string, 0, len(tt.args)+1)
+			finalArgs = append(finalArgs, "root", "pr")
+			finalArgs = append(finalArgs, tt.args...)
+			_ = rootCmd.Run(ctx, finalArgs)
 		})
 	}
 }

@@ -28,7 +28,7 @@ import (
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/grafana/wait-for-github/internal/utils"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 // for testing. We could use `io.Writer`, but then we have to handle opening and
@@ -78,31 +78,31 @@ func extractNumberFromPrURL(url string) (owner, repo, number string) {
 	return owner, repo, number
 }
 
-func parsePRArguments(c *cli.Context, logger *slog.Logger) (prConfig, error) {
+func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger) (prConfig, error) {
 	var owner, repo, number string
 
 	switch {
 	// If a single argument is provided, it is expected to be a pull request URL
-	case c.NArg() == 1:
-		url := c.Args().Get(0)
+	case cmd.NArg() == 1:
+		url := cmd.Args().Get(0)
 		owner, repo, number = extractNumberFromPrURL(url)
 
 		if len(number) == 0 {
 			return prConfig{}, ErrInvalidPRURL{url}
 		}
 	// If three arguments are provided, they are expected to be owner, repo, and PR number
-	case c.NArg() == 3:
-		owner = c.Args().Get(0)
-		repo = c.Args().Get(1)
-		number = c.Args().Get(2)
+	case cmd.NArg() == 3:
+		owner = cmd.Args().Get(0)
+		repo = cmd.Args().Get(1)
+		number = cmd.Args().Get(2)
 	// Any other number of arguments is an error
 	default:
 		// If the number of arguments is not as expected, show the usage message and error out
 		// I think we should be able to do `cli.ShowCommandHelp(c, "pr")` here,
 		// but it doesn't work, says "unknown command pr". So we go through the parent command.
-		lineage := c.Lineage()
+		lineage := cmd.Lineage()
 		parent := lineage[1]
-		err := cli.ShowCommandHelp(parent, "pr")
+		err := cli.ShowCommandHelp(ctx, parent, "pr")
 		if err != nil {
 			return prConfig{}, err
 		}
@@ -112,16 +112,16 @@ func parsePRArguments(c *cli.Context, logger *slog.Logger) (prConfig, error) {
 
 	n, err := strconv.Atoi(number)
 	if err != nil {
-		return prConfig{}, fmt.Errorf("PR must be a number, got '%s'", c.Args().Get(2))
+		return prConfig{}, fmt.Errorf("PR must be a number, got '%s'", cmd.Args().Get(2))
 	}
-	logger.InfoContext(c.Context, "waiting for PR to be merged/closed", "owner", owner, "repo", repo, "pr", n)
+	logger.InfoContext(ctx, "waiting for PR to be merged/closed", "owner", owner, "repo", repo, "pr", n)
 
 	return prConfig{
 		owner:          owner,
 		repo:           repo,
 		pr:             n,
-		commitInfoFile: c.String("commit-info-file"),
-		excludes:       c.StringSlice("exclude"),
+		commitInfoFile: cmd.String("commit-info-file"),
+		excludes:       cmd.StringSlice("exclude"),
 		writer:         osFileWriter{},
 	}, nil
 }
@@ -229,23 +229,23 @@ func prCommand(cfg *config) *cli.Command {
 				},
 				Usage: "Exclude the status of a specific CI check from failing the wait. " +
 					"By default, a failed status check will exit the pr wait command.",
-				EnvVars: []string{
-					"GITHUB_CI_EXCLUDE",
-				},
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_CI_EXCLUDE"),
+				),
 			},
 		},
-		Before: func(c *cli.Context) error {
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			var err error
-			prConf, err = parsePRArguments(c, cfg.logger)
+			prConf, err = parsePRArguments(ctx, cmd, cfg.logger)
 
-			return err
+			return ctx, err
 		},
-		Action: func(c *cli.Context) error {
-			githubClient, err := github.NewGithubClient(c.Context, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			githubClient, err := github.NewGithubClient(ctx, cfg.logger, cfg.AuthInfo, cfg.pendingRecheckTime)
 			if err != nil {
 				return err
 			}
-			return checkPRMerged(c.Context, githubClient, cfg, &prConf)
+			return checkPRMerged(ctx, githubClient, cfg, &prConf)
 		},
 	}
 }

@@ -17,12 +17,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 )
 
 func main() {
-	if err := root().Run(os.Args); err != nil {
+	if err := root().Run(context.Background(), os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
