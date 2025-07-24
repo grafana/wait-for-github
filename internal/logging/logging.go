@@ -14,7 +14,7 @@ import (
 
 type Level slog.Level
 
-func (l *Level) UnmarshalFlag(value string) error {
+func (l *Level) Set(value string) error {
 	var lvl slog.Level
 	if err := lvl.UnmarshalText([]byte(value)); err != nil {
 		return fmt.Errorf("invalid log level: %w", err)
@@ -23,22 +23,21 @@ func (l *Level) UnmarshalFlag(value string) error {
 	return nil
 }
 
-func (l *Level) Set(value string) error {
-	return l.UnmarshalFlag(value)
+func (l *Level) String() string {
+	return slog.Level(*l).String()
 }
 
-func (l Level) String() string {
-	return slog.Level(l).String()
+func (l *Level) Get() any {
+	return l
 }
 
-func SetupLogger(defaultLevel slog.Level) {
+func SetupLogger(defaultLevel slog.Level) *slog.Logger {
 	var lv slog.LevelVar
 	lv.Set(defaultLevel)
 
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 		Level: &lv,
 	}))
-	defer func() { slog.SetDefault(logger) }()
 
 	if os.Getenv("GITHUB_ACTIONS") == "true" {
 		logger = slog.New(&actionslog.Wrapper{
@@ -60,4 +59,6 @@ func SetupLogger(defaultLevel slog.Level) {
 			Level:     &lv,
 		}))
 	}
+
+	return logger
 }

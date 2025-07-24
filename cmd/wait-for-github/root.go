@@ -54,11 +54,17 @@ func root() *cli.Command {
 		Name:  "wait-for-github",
 		Usage: "Wait for things to happen on GitHub",
 		Flags: []cli.Flag{
-			&cli.StringFlag{
+			&cli.GenericFlag{
 				Name:    "log-level",
 				Aliases: []string{"l"},
 				Usage:   fmt.Sprintf("Set the log level. Valid levels are: %s.", strings.Join(validLogLevels(), ", ")),
-				Value:   defaultLogLevel.String(),
+				Value:   &defaultLogLevel,
+				Action: func(ctx context.Context, cmd *cli.Command, value cli.Value) error {
+					level := value.(*logging.Level)
+					cfg.logger = logging.SetupLogger(slog.Level(*level))
+
+					return nil
+				},
 			},
 			&cli.StringFlag{
 				Name:    "github-app-private-key-path",
@@ -121,8 +127,7 @@ func root() *cli.Command {
 		},
 		Commands: commands,
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			var err error
-			cfg, err = handleGlobalConfig(ctx, cmd)
+			err := initialiseConfig(ctx, cmd, &cfg)
 			return ctx, err
 		},
 	}
@@ -132,11 +137,8 @@ func validLogLevels() []string {
 	return []string{"debug", "info", "warn", "error"}
 }
 
-func handleGlobalConfig(ctx context.Context, cmd *cli.Command) (config, error) {
-	var cfg config
-
-	logging.SetupLogger(slog.Level(defaultLogLevel))
-	cfg.logger = slog.Default()
+func initialiseConfig(ctx context.Context, cmd *cli.Command, cfg *config) error {
+	cfg.logger = logging.SetupLogger(slog.Level(defaultLogLevel))
 
 	cfg.logger.DebugContext(ctx, "debug logging enabled")
 
@@ -150,7 +152,7 @@ func handleGlobalConfig(ctx context.Context, cmd *cli.Command) (config, error) {
 		cfg.logger.DebugContext(ctx, "using token starting with", "token", token[:10])
 		cfg.AuthInfo.GithubToken = token
 
-		return cfg, nil
+		return nil
 	}
 
 	privateKey := []byte(cmd.String("github-app-private-key"))
@@ -160,7 +162,7 @@ func handleGlobalConfig(ctx context.Context, cmd *cli.Command) (config, error) {
 		var err error
 		privateKey, err = os.ReadFile(file)
 		if err != nil {
-			return config{}, fmt.Errorf("failed to read private key file: %w", err)
+			return fmt.Errorf("failed to read private key file: %w", err)
 		}
 	}
 
@@ -178,5 +180,5 @@ func handleGlobalConfig(ctx context.Context, cmd *cli.Command) (config, error) {
 		PrivateKey:     privateKey,
 	}
 
-	return cfg, nil
+	return nil
 }
