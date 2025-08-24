@@ -12,7 +12,7 @@ require (
 	github.com/migueleliasweb/go-github-mock v1.4.0
 	github.com/olekukonko/tablewriter v1.0.9
 	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.0
 	github.com/urfave/cli/v3 v3.4.1
 	github.com/willabides/actionslog v0.5.1
 	golang.org/x/oauth2 v0.30.0
