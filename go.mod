@@ -16,7 +16,7 @@ require (
 	github.com/urfave/cli/v3 v3.4.1
 	github.com/willabides/actionslog v0.5.1
 	golang.org/x/oauth2 v0.31.0
-	golang.org/x/term v0.34.0
+	golang.org/x/term v0.35.0
 	golang.org/x/text v0.29.0
 )
 
@@ -41,7 +41,7 @@ require (
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240531132922-fd00a4e0eefc // indirect
 	golang.org/x/net v0.40.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240716161551-93cc26a95ae9 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
