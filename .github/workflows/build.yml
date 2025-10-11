@@ -45,7 +45,7 @@ jobs:
           persist-credentials: false
 
       - name: Build Docker image
-        uses: grafana/shared-workflows/actions/build-push-to-dockerhub@1acd69f48c01d7aef5f209f94048dfeb789026db # build-push-to-dockerhub/v0.2.0
+        uses: grafana/shared-workflows/actions/build-push-to-dockerhub@06f8765f6a5043b01e5a3dddd78a71741552add7 # build-push-to-dockerhub/v0.3.0
         with:
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' || github.event_name == 'workflow_call' }}
