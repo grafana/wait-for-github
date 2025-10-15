@@ -60,8 +60,9 @@ jobs:
         id: build
         uses: grafana/shared-workflows/actions/docker-build-push-image@c658f0fe8393e31c39d266684ef273c6538ed0e1 # docker-build-push-image/v0.1.0
         with:
+          registries: "dockerhub"
           platforms: ${{ matrix.platform }}
-          outputs: "type=image,push-by-digest=true,name-canonical=true,push='false'"
+          outputs: "type=image,push-by-digest=true,name-canonical=true,push=false"
           push: false
           tags: ${{ env.TAGS_CONFIG }}
           include-tags-in-push: false
