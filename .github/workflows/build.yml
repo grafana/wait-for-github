@@ -75,7 +75,7 @@ jobs:
           platform: ${{ matrix.platform }}
 
   push-manifest:
-    runs-on: ubuntu-arm64-small
+    runs-on: ubuntu-24.04
     needs: build-and-export-digest
     permissions:
       contents: read
