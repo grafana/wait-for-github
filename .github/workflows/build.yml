@@ -24,30 +24,16 @@ on:
         type: string
         required: true
 
-env:
-  # Docker image tags. See https://github.com/docker/metadata-action for format
-  TAGS_CONFIG: |
-    type=ref,event=branch,enable={{is_default_branch}}
-    type=semver,pattern={{version}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
-
-
 jobs:
-  main:
+  build-multiarch:
     permissions:
       contents: read
       id-token: write
-
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          persist-credentials: false
-
-      - name: Build Docker image
-        uses: grafana/shared-workflows/actions/build-push-to-dockerhub@06f8765f6a5043b01e5a3dddd78a71741552add7 # build-push-to-dockerhub/v0.3.0
-        with:
-          platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_call' }}
-          tags: ${{ env.TAGS_CONFIG }}
-          repository: ${{ github.repository }}
+    uses: grafana/shared-workflows/.github/workflows/docker-build-push-multiarch.yml@4101b7ff332a47ef03b59a554624800a61668090 # main
+    with:
+      platforms: linux/amd64,linux/arm64
+      tags: |
+        type=ref,event=branch,enable={{is_default_branch}}
+        type=semver,pattern={{version}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
+      push: ${{ github.event_name == 'push' || github.event_name == 'workflow_call' }}
+      registries: "dockerhub"
