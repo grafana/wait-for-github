@@ -36,4 +36,5 @@ jobs:
         type=ref,event=branch,enable={{is_default_branch}}
         type=semver,pattern={{version}},value=${{ inputs.tag }},enable=${{ inputs.tag != '' }}
       push: ${{ github.event_name == 'push' || github.event_name == 'workflow_call' }}
-      registries: "dockerhub"
+      registries: dockerhub
+      runner-type: github
