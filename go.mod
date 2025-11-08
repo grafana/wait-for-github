@@ -15,7 +15,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.5.0
 	github.com/willabides/actionslog v0.5.1
-	golang.org/x/oauth2 v0.32.0
+	golang.org/x/oauth2 v0.33.0
 	golang.org/x/term v0.36.0
 	golang.org/x/text v0.30.0
 )
