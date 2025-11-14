@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.1](https://github.com/grafana/wait-for-github/compare/v1.2.0...v1.2.1) (2025-11-14)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v77 to v78 ([3aa6e81](https://github.com/grafana/wait-for-github/commit/3aa6e81e061efe1211d9d8800fe43c38025895c5))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update module golang.org/x/crypto to v0.43.0 [security] ([a83c4ec](https://github.com/grafana/wait-for-github/commit/a83c4ecfde7f8ac910bfdb63fbe26713abf234ba))
+
 ## [1.2.0](https://github.com/grafana/wait-for-github/compare/v1.1.1...v1.2.0) (2025-11-12)
 
 
