@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.2.1](https://github.com/grafana/wait-for-github/compare/v1.2.0...v1.2.1) (2025-11-21)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v77 to v78 ([3aa6e81](https://github.com/grafana/wait-for-github/commit/3aa6e81e061efe1211d9d8800fe43c38025895c5))
+* **deps:** update module github.com/google/go-github/v78 to v79 ([17ca7ea](https://github.com/grafana/wait-for-github/commit/17ca7ea217ff9001bcdff00fda7717c32695aa8b))
+* **deps:** update module github.com/urfave/cli/v3 to v3.6.1 ([62033cc](https://github.com/grafana/wait-for-github/commit/62033cc9739578ba30cdf843d313589f1c7cd74a))
+* **deps:** update module golang.org/x/term to v0.37.0 ([b4db5eb](https://github.com/grafana/wait-for-github/commit/b4db5eb94d7354ea85501f73e2c309daf5795cf0))
+* **deps:** update module golang.org/x/text to v0.31.0 ([77dd3c9](https://github.com/grafana/wait-for-github/commit/77dd3c99e2a1014586814bea4f34f33d7710d8a3))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/checkout action to v5.0.1 ([ff168d5](https://github.com/grafana/wait-for-github/commit/ff168d5a2bb15ce4b1e282a30c5dadb13df1a35a))
+* **deps:** update github/codeql-action action to v4.31.3 ([8a09862](https://github.com/grafana/wait-for-github/commit/8a09862ecc07a534bee00bc05b1edfbc67c17b3a))
+* **deps:** update github/codeql-action action to v4.31.4 ([14bb779](https://github.com/grafana/wait-for-github/commit/14bb77934cfbf91417ccff9cc3b78062d35826ff))
+* **deps:** update grafana/shared-workflows/ action to ([07ba6b6](https://github.com/grafana/wait-for-github/commit/07ba6b611cc55e7b4ca851a9933d88aacf3a654c))
+* **deps:** update grafana/shared-workflows/ action to ([d8d671e](https://github.com/grafana/wait-for-github/commit/d8d671efc29190f030184c49ca31f084d5c40aad))
+* **deps:** update grafana/shared-workflows/ action to ([4808b22](https://github.com/grafana/wait-for-github/commit/4808b222550022af7ff174f22d1e821174eaba72))
+* **deps:** update module golang.org/x/crypto to v0.43.0 [security] ([a83c4ec](https://github.com/grafana/wait-for-github/commit/a83c4ecfde7f8ac910bfdb63fbe26713abf234ba))
+* **deps:** update module golang.org/x/crypto to v0.45.0 [security] ([b9855fb](https://github.com/grafana/wait-for-github/commit/b9855fb6adae0441b1426e7d7721c3f5cec64bdd))
+
 ## [1.2.0](https://github.com/grafana/wait-for-github/compare/v1.1.1...v1.2.0) (2025-11-12)
 
 
