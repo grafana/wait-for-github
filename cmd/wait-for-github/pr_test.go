@@ -60,6 +60,7 @@ func TestPRCheck(t *testing.T) {
 		name             string
 		fakeClient       fakeGithubClientPRCheck
 		expectedExitCode *int
+		allowFailedCI    bool
 	}{
 		{
 			name: "PR is merged",
@@ -90,10 +91,28 @@ func TestPRCheck(t *testing.T) {
 			},
 		},
 		{
-			name: "Not merged, but CI failed",
+			name: "Not merged, but CI failed (stop-on-failed-ci enabled)",
 			fakeClient: fakeGithubClientPRCheck{
 				CIStatus: github.CIStatusFailed,
 			},
+			expectedExitCode: &one,
+		},
+		{
+			name: "Merged, CI failed",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:     github.CIStatusFailed,
+				MergedCommit: "abc123",
+				MergedAt:     1234567890,
+			},
+			expectedExitCode: &zero,
+		},
+		{
+			name: "Closed, CI failed (stop-on-failed-ci disabled)",
+			fakeClient: fakeGithubClientPRCheck{
+				Closed:   true,
+				CIStatus: github.CIStatusFailed,
+			},
+			allowFailedCI:    true,
 			expectedExitCode: &one,
 		},
 		{
@@ -122,9 +141,10 @@ func TestPRCheck(t *testing.T) {
 			cancel()
 
 			prConfig := prConfig{
-				owner: "owner",
-				repo:  "repo",
-				pr:    1,
+				owner:          "owner",
+				repo:           "repo",
+				pr:             1,
+				stopOnFailedCI: !tt.allowFailedCI,
 			}
 
 			err := checkPRMerged(ctx, fakePRStatusChecker, cfg, &prConfig)
@@ -237,20 +257,22 @@ func TestParsePRArguments(t *testing.T) {
 			name: "Valid pull request URL",
 			args: []string{"https://github.com/owner/repo/pull/1"},
 			want: prConfig{
-				owner:  "owner",
-				repo:   "repo",
-				pr:     1,
-				writer: osFileWriter{},
+				owner:          "owner",
+				repo:           "repo",
+				pr:             1,
+				stopOnFailedCI: false,
+				writer:         osFileWriter{},
 			},
 		},
 		{
 			name: "Valid arguments owner, repo, pr",
 			args: []string{"owner", "repo", "1"},
 			want: prConfig{
-				owner:  "owner",
-				repo:   "repo",
-				pr:     1,
-				writer: osFileWriter{},
+				owner:          "owner",
+				repo:           "repo",
+				pr:             1,
+				stopOnFailedCI: false,
+				writer:         osFileWriter{},
 			},
 		},
 		{
@@ -278,6 +300,12 @@ func TestParsePRArguments(t *testing.T) {
 			rootCmd := &cli.Command{}
 			prCmd := &cli.Command{
 				Name: "pr",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "stop-on-failed-ci",
+						Value: false,
+					},
+				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					got, err := parsePRArguments(ctx, cmd, testLogger)
 					if tt.wantErr != nil {
