@@ -50,7 +50,7 @@ type prConfig struct {
 
 	commitInfoFile string
 	excludes       []string
-	stopOnFailedCI bool
+	ignoreFailedCI bool
 	writer         fileWriter
 }
 
@@ -123,7 +123,7 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 		pr:             n,
 		commitInfoFile: cmd.String("commit-info-file"),
 		excludes:       cmd.StringSlice("exclude"),
-		stopOnFailedCI: cmd.Bool("stop-on-failed-ci"),
+		ignoreFailedCI: cmd.Bool("ignore-failed-ci"),
 		writer:         osFileWriter{},
 	}, nil
 }
@@ -180,7 +180,7 @@ func (pr prCheck) Check(ctx context.Context) error {
 		return cli.Exit("PR is closed", 1)
 	}
 
-	if !pr.stopOnFailedCI {
+	if pr.ignoreFailedCI {
 		return nil
 	}
 
@@ -240,11 +240,11 @@ func prCommand(cfg *config) *cli.Command {
 				),
 			},
 			&cli.BoolFlag{
-				Name:  "stop-on-failed-ci",
-				Usage: "Stop and exit with error when CI fails. Defaults to true.",
-				Value: true,
+				Name:  "ignore-failed-ci",
+				Usage: "Ignore failed CI checks and continue waiting. Defaults to false.",
+				Value: false,
 				Sources: cli.NewValueSourceChain(
-					cli.EnvVar("GITHUB_STOP_ON_FAILED_CI"),
+					cli.EnvVar("GITHUB_IGNORE_FAILED_CI"),
 				),
 			},
 		},

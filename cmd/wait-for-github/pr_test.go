@@ -60,7 +60,7 @@ func TestPRCheck(t *testing.T) {
 		name             string
 		fakeClient       fakeGithubClientPRCheck
 		expectedExitCode *int
-		allowFailedCI    bool
+		ignoreFailedCI   bool
 	}{
 		{
 			name: "PR is merged",
@@ -91,7 +91,7 @@ func TestPRCheck(t *testing.T) {
 			},
 		},
 		{
-			name: "Not merged, but CI failed (stop-on-failed-ci enabled)",
+			name: "Not merged, but CI failed (ignore-failed-ci disabled)",
 			fakeClient: fakeGithubClientPRCheck{
 				CIStatus: github.CIStatusFailed,
 			},
@@ -107,12 +107,12 @@ func TestPRCheck(t *testing.T) {
 			expectedExitCode: &zero,
 		},
 		{
-			name: "Closed, CI failed (stop-on-failed-ci disabled)",
+			name: "Closed, CI failed (ignore-failed-ci enabled)",
 			fakeClient: fakeGithubClientPRCheck{
 				Closed:   true,
 				CIStatus: github.CIStatusFailed,
 			},
-			allowFailedCI:    true,
+			ignoreFailedCI:   true,
 			expectedExitCode: &one,
 		},
 		{
@@ -144,7 +144,7 @@ func TestPRCheck(t *testing.T) {
 				owner:          "owner",
 				repo:           "repo",
 				pr:             1,
-				stopOnFailedCI: !tt.allowFailedCI,
+				ignoreFailedCI: tt.ignoreFailedCI,
 			}
 
 			err := checkPRMerged(ctx, fakePRStatusChecker, cfg, &prConfig)
@@ -260,7 +260,7 @@ func TestParsePRArguments(t *testing.T) {
 				owner:          "owner",
 				repo:           "repo",
 				pr:             1,
-				stopOnFailedCI: false,
+				ignoreFailedCI: false,
 				writer:         osFileWriter{},
 			},
 		},
@@ -271,7 +271,7 @@ func TestParsePRArguments(t *testing.T) {
 				owner:          "owner",
 				repo:           "repo",
 				pr:             1,
-				stopOnFailedCI: false,
+				ignoreFailedCI: false,
 				writer:         osFileWriter{},
 			},
 		},
@@ -302,7 +302,7 @@ func TestParsePRArguments(t *testing.T) {
 				Name: "pr",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
-						Name:  "stop-on-failed-ci",
+						Name:  "ignore-failed-ci",
 						Value: false,
 					},
 				},
