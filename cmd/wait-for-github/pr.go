@@ -50,6 +50,7 @@ type prConfig struct {
 
 	commitInfoFile string
 	excludes       []string
+	ignoreFailedCI bool
 	writer         fileWriter
 }
 
@@ -122,6 +123,7 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 		pr:             n,
 		commitInfoFile: cmd.String("commit-info-file"),
 		excludes:       cmd.StringSlice("exclude"),
+		ignoreFailedCI: cmd.Bool("ignore-failed-ci"),
 		writer:         osFileWriter{},
 	}, nil
 }
@@ -178,6 +180,10 @@ func (pr prCheck) Check(ctx context.Context) error {
 		return cli.Exit("PR is closed", 1)
 	}
 
+	if pr.ignoreFailedCI {
+		return nil
+	}
+
 	// not merged, not closed, let's see what the CI status is. If that's bad,
 	// we can exit early.
 	sha, err := pr.githubClient.GetPRHeadSHA(ctx, pr.owner, pr.repo, pr.pr)
@@ -231,6 +237,14 @@ func prCommand(cfg *config) *cli.Command {
 					"By default, a failed status check will exit the pr wait command.",
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("GITHUB_CI_EXCLUDE"),
+				),
+			},
+			&cli.BoolFlag{
+				Name:  "ignore-failed-ci",
+				Usage: "Ignore failed CI checks and continue waiting. Defaults to false.",
+				Value: false,
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_IGNORE_FAILED_CI"),
 				),
 			},
 		},

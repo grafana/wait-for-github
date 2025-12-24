@@ -42,6 +42,10 @@ inputs:
   checks-to-wait-for:
     description: 'The comma-separated names of the checks to wait for. Only used when wait-for is "ci"'
     required: false
+  ignore-failed-ci:
+    description: 'Ignore failed CI checks and continue waiting. Only used when wait-for is "pr". Defaults to false'
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -68,6 +72,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
         GITHUB_CI_EXCLUDE: ${{ inputs.exclude-checks }}
+        GITHUB_IGNORE_FAILED_CI: ${{ inputs.ignore-failed-ci }}
         GITHUB_APP_ID: ${{ inputs.app-id }}
         GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
         GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}
