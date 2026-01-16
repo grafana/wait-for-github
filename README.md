@@ -61,12 +61,16 @@ USAGE:
 OPTIONS:
    --commit-info-file value  Path to a file which the commit info will be written. The file will be overwritten if it already exists.
    --exclude value, -x value [ --exclude value, -x value ]  Exclude the status of a specific CI check from failing the wait. By default, a failed status check will exit the pr wait command. [$GITHUB_CI_EXCLUDE]
+   --ignore-failed-ci        Continue waiting for PR merge/close even if CI checks fail. Defaults to false. [$GITHUB_IGNORE_FAILED_CI]
    --help, -h                show help
 ```
 
 This command will wait for the given PR (URL or owner/repo/number) to be merged
 or closed. If merged, it will exit with code `0` (success) and if closed without
 being merged it will exit with code `1` (failure).
+
+By default, the command will also exit with code `1` if the CI checks on the PR
+fail. This behavior can be disabled by setting `--ignore-failed-ci=true`.
 
 #### `ci`
 
@@ -154,6 +158,10 @@ which are not added immediately.
 
 Recheck interval (i.e. poll this often) in golang duration format. Optional.
 Default is `30s`.
+
+#### `ignore-failed-ci`
+
+Ignore failed CI checks and continue waiting for PR to be closed or merged. Only used when `wait-for` is set to `"pr"`. Optional. Default is `false`.
 
 #### `owner`
 
