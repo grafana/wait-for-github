@@ -1298,6 +1298,185 @@ func TestGetPRHeadSHA_Error(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestRerunFailedWorkflowsForCommit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                string
+		workflowRuns        []*github.WorkflowRun
+		rerunShouldFail     bool
+		expectedRerunCount  int
+		expectedError       bool
+		expectedRerunCalled int
+	}{
+		{
+			name: "reruns failed workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Int64(1), Conclusion: github.String("failure")},
+			},
+			expectedRerunCount:  1,
+			expectedRerunCalled: 1,
+		},
+		{
+			name: "reruns timed_out workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Int64(1), Conclusion: github.String("timed_out")},
+			},
+			expectedRerunCount:  1,
+			expectedRerunCalled: 1,
+		},
+		{
+			name: "does not rerun successful workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Int64(1), Conclusion: github.String("success")},
+			},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "does not rerun cancelled workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Int64(1), Conclusion: github.String("cancelled")},
+			},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "does not rerun skipped workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Int64(1), Conclusion: github.String("skipped")},
+			},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "reruns multiple failed workflows",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Int64(1), Conclusion: github.String("failure")},
+				{ID: github.Int64(2), Conclusion: github.String("timed_out")},
+				{ID: github.Int64(3), Conclusion: github.String("success")},
+			},
+			expectedRerunCount:  2,
+			expectedRerunCalled: 2,
+		},
+		{
+			name:                "handles empty workflow list",
+			workflowRuns:        []*github.WorkflowRun{},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "rerun API failure returns error",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Int64(1), Conclusion: github.String("failure")},
+			},
+			rerunShouldFail:     true,
+			expectedRerunCount:  0,
+			expectedError:       true,
+			expectedRerunCalled: 5, // retries 5 times before failing
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := context.Background()
+			rerunCallCount := 0
+
+			mockedHTTPClient := mock.NewMockedHTTPClient(
+				mock.WithRequestMatch(
+					mock.GetReposActionsRunsByOwnerByRepo,
+					github.WorkflowRuns{
+						TotalCount:   github.Int(len(tt.workflowRuns)),
+						WorkflowRuns: tt.workflowRuns,
+					},
+				),
+				mock.WithRequestMatchHandler(
+					mock.PostReposActionsRunsRerunFailedJobsByOwnerByRepoByRunId,
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						rerunCallCount++
+						if tt.rerunShouldFail {
+							mock.WriteError(w, http.StatusInternalServerError, "Internal Server Error")
+							return
+						}
+						w.WriteHeader(http.StatusCreated)
+					}),
+				),
+			)
+
+			ghClient := newClientFromMock(t, mockedHTTPClient, "")
+			count, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+
+			if tt.expectedError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.expectedRerunCount, count)
+			require.Equal(t, tt.expectedRerunCalled, rerunCallCount)
+		})
+	}
+}
+
+func TestRerunFailedWorkflowsForCommit_ListError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatchHandler(
+			mock.GetReposActionsRunsByOwnerByRepo,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mock.WriteError(w, http.StatusInternalServerError, "Internal Server Error")
+			}),
+		),
+	)
+
+	ghClient := newClientFromMock(t, mockedHTTPClient, "")
+	_, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to list workflow runs")
+}
+
+func TestRerunFailedWorkflowsForCommit_DeduplicatesRuns(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	rerunCallCount := 0
+
+	// Simulate the same run appearing twice (edge case)
+	workflowRuns := []*github.WorkflowRun{
+		{ID: github.Int64(1), Conclusion: github.String("failure")},
+		{ID: github.Int64(1), Conclusion: github.String("failure")}, // duplicate
+	}
+
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetReposActionsRunsByOwnerByRepo,
+			github.WorkflowRuns{
+				TotalCount:   github.Int(len(workflowRuns)),
+				WorkflowRuns: workflowRuns,
+			},
+		),
+		mock.WithRequestMatchHandler(
+			mock.PostReposActionsRunsRerunFailedJobsByOwnerByRepoByRunId,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				rerunCallCount++
+				w.WriteHeader(http.StatusCreated)
+			}),
+		),
+	)
+
+	ghClient := newClientFromMock(t, mockedHTTPClient, "")
+	count, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.Equal(t, 1, rerunCallCount)
+}
+
 func TestHandleResponseError(t *testing.T) {
 	t.Parallel()
 

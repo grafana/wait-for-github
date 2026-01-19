@@ -42,6 +42,10 @@ inputs:
   checks-to-wait-for:
     description: 'The comma-separated names of the checks to wait for. Only used when wait-for is "ci"'
     required: false
+  action-retries:
+    description: 'Number of times to retry failed GitHub Actions before failing. Only used when wait-for is "pr"'
+    required: false
+    default: "0"
 
 runs:
   using: composite
@@ -68,6 +72,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
         GITHUB_CI_EXCLUDE: ${{ inputs.exclude-checks }}
+        GITHUB_ACTION_RETRIES: ${{ inputs.action-retries }}
         GITHUB_APP_ID: ${{ inputs.app-id }}
         GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
         GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}

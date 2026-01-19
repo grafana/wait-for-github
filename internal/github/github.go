@@ -65,6 +65,10 @@ type GetDetailedCIStatus interface {
 	GetDetailedCIStatus(ctx context.Context, owner, repo string, commitHash string) ([]CICheckStatus, error)
 }
 
+type RerunFailedWorkflows interface {
+	RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error)
+}
+
 type CheckCIStatus interface {
 	CheckOverallCIStatus
 	CheckCIStatusForChecks
@@ -680,4 +684,69 @@ func (c GHClient) GetDetailedCIStatus(ctx context.Context, owner, repoName, ref 
 	})
 
 	return allChecks, nil
+}
+
+// RerunFailedWorkflowsForCommit finds all failed GitHub Actions workflow runs for a commit and re-runs them.
+// Returns the number of workflows that were re-run.
+func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repoName, commitHash string) (int, error) {
+	listOptions := github.ListOptions{
+		PerPage: 100,
+	}
+
+	opts := &github.ListWorkflowRunsOptions{
+		HeadSHA:     commitHash,
+		ListOptions: listOptions,
+	}
+
+	var failedRunIDs []int64
+	seenRuns := make(map[int64]bool)
+
+	for {
+		runs, resp, err := c.client.Actions.ListRepositoryWorkflowRuns(ctx, owner, repoName, opts)
+		if err != nil {
+			return 0, fmt.Errorf("failed to list workflow runs: %w", err)
+		}
+
+		respErr := c.handleResponseError(resp, "ListRepositoryWorkflowRuns", owner, repoName)
+		if respErr != nil {
+			return 0, respErr
+		}
+
+		for _, run := range runs.WorkflowRuns {
+			if seenRuns[run.GetID()] {
+				continue
+			}
+			seenRuns[run.GetID()] = true
+
+			// See https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-workflow
+			// Can be one of: completed, action_required, cancelled, failure, neutral, skipped, stale, success, timed_out, in_progress, queued, requested, waiting, pending
+			conclusion := strings.ToLower(run.GetConclusion())
+			retryableConclusions := []string{"failure", "timed_out"}
+			if slices.Contains(retryableConclusions, conclusion) {
+				failedRunIDs = append(failedRunIDs, run.GetID())
+			}
+		}
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
+	}
+
+	rerunCount := 0
+	for _, runID := range failedRunIDs {
+		c.logger.InfoContext(ctx, "re-running failed workflow", "run_id", runID)
+		resp, err := c.client.Actions.RerunFailedJobsByID(ctx, owner, repoName, runID)
+		if err != nil {
+			return rerunCount, fmt.Errorf("failed to rerun workflow %d: %w", runID, err)
+		}
+
+		respErr := c.handleResponseError(resp, "RerunFailedJobsByID", owner, repoName)
+		if respErr != nil {
+			return rerunCount, respErr
+		}
+		rerunCount++
+	}
+
+	return rerunCount, nil
 }
