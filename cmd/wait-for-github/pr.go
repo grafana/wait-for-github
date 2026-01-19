@@ -50,6 +50,7 @@ type prConfig struct {
 
 	commitInfoFile string
 	excludes       []string
+	actionRetries  int
 	writer         fileWriter
 }
 
@@ -122,6 +123,7 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 		pr:             n,
 		commitInfoFile: cmd.String("commit-info-file"),
 		excludes:       cmd.StringSlice("exclude"),
+		actionRetries:  int(cmd.Int("action-retries")),
 		writer:         osFileWriter{},
 	}, nil
 }
@@ -137,15 +139,17 @@ type checkMergedAndOverallCI interface {
 	github.CheckPRMerged
 	github.GetPRHeadSHA
 	github.CheckOverallCIStatus
+	github.RerunFailedWorkflows
 }
 
 type prCheck struct {
 	prConfig
 	githubClient checkMergedAndOverallCI
 	logger       *slog.Logger
+	retriesDone  int
 }
 
-func (pr prCheck) Check(ctx context.Context) error {
+func (pr *prCheck) Check(ctx context.Context) error {
 	mergedCommit, closed, mergedAt, err := pr.githubClient.IsPRMergedOrClosed(ctx, pr.owner, pr.repo, pr.pr)
 	if err != nil {
 		return err
@@ -191,6 +195,29 @@ func (pr prCheck) Check(ctx context.Context) error {
 	}
 
 	if status == github.CIStatusFailed {
+		// Check if we have retries left
+		if pr.actionRetries > 0 && pr.retriesDone < pr.actionRetries {
+			pr.logger.InfoContext(ctx, "CI failed, attempting to retry failed GitHub Actions",
+				"retries_done", pr.retriesDone, "retries_allowed", pr.actionRetries)
+
+			rerunCount, err := pr.githubClient.RerunFailedWorkflowsForCommit(ctx, pr.owner, pr.repo, sha)
+			if err != nil {
+				pr.logger.WarnContext(ctx, "failed to rerun workflows, will retry", "error", err)
+				return nil // Continue waiting and try again
+			}
+
+			if rerunCount > 0 {
+				pr.retriesDone++
+				pr.logger.InfoContext(ctx, "re-ran failed workflows, continuing to wait",
+					"workflows_rerun", rerunCount, "retries_done", pr.retriesDone)
+				return nil // Continue waiting
+			}
+
+			// No workflows were rerun (maybe non-Action failures), fail immediately
+			pr.logger.InfoContext(ctx, "CI failed with no GitHub Actions to retry, exiting")
+			return cli.Exit("CI failed", 1)
+		}
+
 		pr.logger.InfoContext(ctx, "CI failed, exiting")
 		return cli.Exit("CI failed", 1)
 	}
@@ -200,7 +227,7 @@ func (pr prCheck) Check(ctx context.Context) error {
 }
 
 func checkPRMerged(timeoutCtx context.Context, githubClient checkMergedAndOverallCI, cfg *config, prConf *prConfig) error {
-	checkPRMergedOrClosed := prCheck{
+	checkPRMergedOrClosed := &prCheck{
 		githubClient: githubClient,
 		prConfig:     *prConf,
 		logger:       cfg.logger,
@@ -231,6 +258,13 @@ func prCommand(cfg *config) *cli.Command {
 					"By default, a failed status check will exit the pr wait command.",
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("GITHUB_CI_EXCLUDE"),
+				),
+			},
+			&cli.IntFlag{
+				Name:  "action-retries",
+				Usage: "Number of times to retry failed GitHub Actions before failing. Set to 0 to disable retries.",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_ACTION_RETRIES"),
 				),
 			},
 		},

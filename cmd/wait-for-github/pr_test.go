@@ -34,11 +34,14 @@ type fakeGithubClientPRCheck struct {
 	Closed       bool
 	MergedAt     int64
 
-	isPRMergedError   error
-	getPRHeadSHAError error
-	getCIStatusError  error
+	isPRMergedError            error
+	getPRHeadSHAError          error
+	getCIStatusError           error
+	rerunFailedWorkflowsError  error
 
-	CIStatus github.CIStatus
+	CIStatus         github.CIStatus
+	RerunCount       int
+	RerunCalledCount int
 }
 
 func (fg *fakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
@@ -53,12 +56,18 @@ func (fg *fakeGithubClientPRCheck) GetCIStatus(ctx context.Context, owner, repo 
 	return fg.CIStatus, fg.getCIStatusError
 }
 
+func (fg *fakeGithubClientPRCheck) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error) {
+	fg.RerunCalledCount++
+	return fg.RerunCount, fg.rerunFailedWorkflowsError
+}
+
 func TestPRCheck(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name             string
 		fakeClient       fakeGithubClientPRCheck
+		actionRetries    int
 		expectedExitCode *int
 	}{
 		{
@@ -97,6 +106,33 @@ func TestPRCheck(t *testing.T) {
 			expectedExitCode: &one,
 		},
 		{
+			name: "CI failed with action-retries, workflows rerun",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:   github.CIStatusFailed,
+				RerunCount: 1,
+			},
+			actionRetries: 2,
+			// No exit code - should continue waiting after rerun
+		},
+		{
+			name: "CI failed with action-retries, no workflows to rerun",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:   github.CIStatusFailed,
+				RerunCount: 0,
+			},
+			actionRetries:    2,
+			expectedExitCode: &one,
+		},
+		{
+			name: "CI failed with action-retries, rerun error continues waiting",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:                  github.CIStatusFailed,
+				rerunFailedWorkflowsError: fmt.Errorf("rerun failed"),
+			},
+			actionRetries: 2,
+			// No exit code - should continue waiting and retry later
+		},
+		{
 			name: "Not merged, getting PR head SHA failed",
 			fakeClient: fakeGithubClientPRCheck{
 				getPRHeadSHAError: fmt.Errorf("an error occurred"),
@@ -122,9 +158,10 @@ func TestPRCheck(t *testing.T) {
 			cancel()
 
 			prConfig := prConfig{
-				owner: "owner",
-				repo:  "repo",
-				pr:    1,
+				owner:         "owner",
+				repo:          "repo",
+				pr:            1,
+				actionRetries: tt.actionRetries,
 			}
 
 			err := checkPRMerged(ctx, fakePRStatusChecker, cfg, &prConfig)

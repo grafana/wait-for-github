@@ -36,6 +36,8 @@ key, ID and installtion ID.
 The GitHub token or app needs the following permissions:
 
 - `actions:read` - Read names of workflows which ran on a ref
+- `actions:write` - Required only if using `--action-retries` to rerun failed
+  workflows
 - `checks:read` - Read check run status and conclusions for CI checks
 - `contents:read` - Access commit data through GitHub's GraphQL API when
   checking CI status
@@ -59,6 +61,7 @@ USAGE:
    wait-for-github pr [command options] <https://github.com/OWNER/REPO/pulls/PR|owner> [<repo> <pr>]
 
 OPTIONS:
+   --action-retries value    Number of times to retry failed GitHub Actions before failing. Set to 0 to disable retries. (default: 0) [$GITHUB_ACTION_RETRIES]
    --commit-info-file value  Path to a file which the commit info will be written. The file will be overwritten if it already exists.
    --exclude value, -x value [ --exclude value, -x value ]  Exclude the status of a specific CI check from failing the wait. By default, a failed status check will exit the pr wait command. [$GITHUB_CI_EXCLUDE]
    --help, -h                show help
@@ -67,6 +70,10 @@ OPTIONS:
 This command will wait for the given PR (URL or owner/repo/number) to be merged
 or closed. If merged, it will exit with code `0` (success) and if closed without
 being merged it will exit with code `1` (failure).
+
+To automatically retry failed GitHub Actions workflows, use the `--action-retries`
+flag. For example, `--action-retries 2` will retry failed workflows up to 2 times
+before actually failing.
 
 #### `ci`
 
@@ -149,6 +156,11 @@ might take some time to be reported to GitHub and they aren't marked as required
 checks on the repository. Only used when `wait-for` is set to `"ci"`. Optional.
 If not set, all checks will be waited for, but then the tool may miss checks
 which are not added immediately.
+
+#### `action-retries`
+
+Number of times to retry failed GitHub Actions before failing. Only used when
+`wait-for` is set to `"pr"`. Optional. Default is `0` (no retries).
 
 #### `interval`
 
