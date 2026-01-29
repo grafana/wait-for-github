@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.3.1](https://github.com/grafana/wait-for-github/compare/v1.3.0...v1.3.1) (2026-01-29)
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/checkout action to v6.0.2 ([0b8d70a](https://github.com/grafana/wait-for-github/commit/0b8d70a2c52ca975412cac842dde3e157b3a9071))
+* **deps:** update github/codeql-action action to v4.31.11 ([39ea2b1](https://github.com/grafana/wait-for-github/commit/39ea2b1e5e8211f8852f1017b2d8c4916ae8f734))
+* **deps:** update grafana/shared-workflows/ action to ([fd0a456](https://github.com/grafana/wait-for-github/commit/fd0a4564341dc6b7d0086d4c59c4ceeec5414e47))
+
 ## [1.3.0](https://github.com/grafana/wait-for-github/compare/v1.2.0...v1.3.0) (2026-01-21)
 
 
