@@ -43,7 +43,7 @@ inputs:
     description: 'The comma-separated names of the checks to wait for. Only used when wait-for is "ci"'
     required: false
   action-retries:
-    description: 'Number of times to retry failed GitHub Actions before failing. Only used when wait-for is "pr"'
+    description: 'Number of times to retry failed GitHub Actions before failing'
     required: false
     default: "0"
 
