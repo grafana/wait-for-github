@@ -36,8 +36,9 @@ type ciConfig struct {
 	ref   string
 
 	// options
-	checks   []string
-	excludes []string
+	checks        []string
+	excludes      []string
+	actionRetries int
 }
 
 var (
@@ -119,12 +120,18 @@ func parseCIArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 	}
 
 	return ciConfig{
-		owner:    owner,
-		repo:     repo,
-		ref:      ref,
-		checks:   cmd.StringSlice("check"),
-		excludes: cmd.StringSlice("exclude"),
+		owner:         owner,
+		repo:          repo,
+		ref:           ref,
+		checks:        cmd.StringSlice("check"),
+		excludes:      cmd.StringSlice("exclude"),
+		actionRetries: cmd.Int("action-retries"),
 	}, nil
+}
+
+type checkCIStatusWithRerun interface {
+	github.CheckCIStatus
+	github.RerunFailedWorkflows
 }
 
 func handleCIStatus(logger *slog.Logger, status github.CIStatus, url string) cli.ExitCoder {
@@ -143,18 +150,52 @@ func handleCIStatus(logger *slog.Logger, status github.CIStatus, url string) cli
 }
 
 type checkAllCI struct {
-	githubClient github.CheckCIStatus
-	owner        string
-	repo         string
-	ref          string
-	excludes     []string
-	logger       *slog.Logger
+	githubClient  checkCIStatusWithRerun
+	owner         string
+	repo          string
+	ref           string
+	excludes      []string
+	logger        *slog.Logger
+	actionRetries int
+	retriesDone   int
 }
 
-func (ci checkAllCI) Check(ctx context.Context) error {
+// tryRerunFailedWorkflows attempts to rerun failed workflows if retries are available.
+// Returns true if we should continue waiting (workflows were rerun or rerun failed temporarily).
+func (ci *checkAllCI) tryRerunFailedWorkflows(ctx context.Context) bool {
+	if ci.actionRetries == 0 || ci.retriesDone >= ci.actionRetries {
+		return false
+	}
+
+	ci.logger.InfoContext(ctx, "CI failed, attempting to retry failed GitHub Actions",
+		"retries_done", ci.retriesDone, "retries_allowed", ci.actionRetries)
+
+	rerunCount, err := ci.githubClient.RerunFailedWorkflowsForCommit(ctx, ci.owner, ci.repo, ci.ref)
+	if err != nil {
+		ci.logger.WarnContext(ctx, "failed to rerun workflows, will retry", "error", err)
+		return true // Continue waiting and try again
+	}
+
+	if rerunCount > 0 {
+		ci.retriesDone++
+		ci.logger.InfoContext(ctx, "re-ran failed workflows, continuing to wait",
+			"workflows_rerun", rerunCount, "retries_done", ci.retriesDone)
+		return true // Continue waiting
+	}
+
+	// No workflows were rerun (maybe non-Action failures), fail immediately
+	ci.logger.InfoContext(ctx, "CI failed with no GitHub Actions to retry, exiting")
+	return false
+}
+
+func (ci *checkAllCI) Check(ctx context.Context) error {
 	status, err := ci.githubClient.GetCIStatus(ctx, ci.owner, ci.repo, ci.ref, ci.excludes)
 	if err != nil {
 		return err
+	}
+
+	if status == github.CIStatusFailed && ci.tryRerunFailedWorkflows(ctx) {
+		return nil
 	}
 
 	return handleCIStatus(ci.logger, status, urlFor(ci.owner, ci.repo, ci.ref))
@@ -166,9 +207,7 @@ type checkSpecificCI struct {
 	checks []string
 }
 
-func (ci checkSpecificCI) Check(ctx context.Context) error {
-	var status github.CIStatus
-
+func (ci *checkSpecificCI) Check(ctx context.Context) error {
 	status, interestingChecks, err := ci.githubClient.GetCIStatusForChecks(ctx, ci.owner, ci.repo, ci.ref, ci.checks)
 	if err != nil {
 		return err
@@ -176,6 +215,9 @@ func (ci checkSpecificCI) Check(ctx context.Context) error {
 
 	if status == github.CIStatusFailed {
 		ci.logger.InfoContext(ctx, "CI check failed, not waiting for other checks", "failed_checks", strings.Join(interestingChecks, ", "))
+		if ci.tryRerunFailedWorkflows(ctx) {
+			return nil
+		}
 	}
 
 	// we didn't find any failed checks, and not all checks are finished, so
@@ -187,21 +229,22 @@ func (ci checkSpecificCI) Check(ctx context.Context) error {
 	return handleCIStatus(ci.logger, status, urlFor(ci.owner, ci.repo, ci.ref))
 }
 
-func checkCIStatus(timeoutCtx context.Context, githubClient github.CheckCIStatus, cfg *config, ciConf *ciConfig) error {
+func checkCIStatus(timeoutCtx context.Context, githubClient checkCIStatusWithRerun, cfg *config, ciConf *ciConfig) error {
 	logger := cfg.logger.With(logging.OwnerAttr(ciConf.owner), logging.RepoAttr(ciConf.repo), logging.RefAttr(ciConf.ref))
 	logger.InfoContext(timeoutCtx, "checking CI status")
 
-	all := checkAllCI{
-		githubClient: githubClient,
-		owner:        ciConf.owner,
-		repo:         ciConf.repo,
-		ref:          ciConf.ref,
-		excludes:     ciConf.excludes,
-		logger:       cfg.logger,
+	all := &checkAllCI{
+		githubClient:  githubClient,
+		owner:         ciConf.owner,
+		repo:          ciConf.repo,
+		ref:           ciConf.ref,
+		excludes:      ciConf.excludes,
+		logger:        cfg.logger,
+		actionRetries: ciConf.actionRetries,
 	}
 
-	specific := checkSpecificCI{
-		checkAllCI: all,
+	specific := &checkSpecificCI{
+		checkAllCI: *all,
 		checks:     ciConf.checks,
 	}
 
@@ -256,6 +299,13 @@ func ciCommand(cfg *config) *cli.Command {
 					"By default, the status of all checks is checked.",
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("GITHUB_CI_EXCLUDE"),
+				),
+			},
+			&cli.IntFlag{
+				Name:  "action-retries",
+				Usage: "Number of times to retry failed GitHub Actions before failing. Set to 0 to disable retries.",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_ACTION_RETRIES"),
 				),
 			},
 		},

@@ -26,10 +26,13 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// FakeCIStatusChecker implements the CheckCIStatus interface.
+// FakeCIStatusChecker implements the checkCIStatusWithRerun interface.
 type FakeCIStatusChecker struct {
-	status github.CIStatus
-	err    error
+	status           github.CIStatus
+	err              error
+	RerunCount       int
+	RerunCalledCount int
+	RerunError       error
 }
 
 func (c *FakeCIStatusChecker) GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (github.CIStatus, error) {
@@ -42,6 +45,11 @@ func (c *FakeCIStatusChecker) GetCIStatusForChecks(ctx context.Context, owner, r
 
 func (c *FakeCIStatusChecker) GetDetailedCIStatus(ctx context.Context, owner, repo string, commitHash string) ([]github.CICheckStatus, error) {
 	return nil, c.err
+}
+
+func (c *FakeCIStatusChecker) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error) {
+	c.RerunCalledCount++
+	return c.RerunCount, c.RerunError
 }
 
 func TestHandleCIStatus(t *testing.T) {
@@ -293,6 +301,10 @@ func (c *UnknownCIStatusChecker) GetDetailedCIStatus(ctx context.Context, owner,
 	return nil, nil
 }
 
+func (c *UnknownCIStatusChecker) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error) {
+	return 0, nil
+}
+
 func TestUnknownCIStatusRetries(t *testing.T) {
 	t.Parallel()
 
@@ -335,4 +347,143 @@ func TestUrlFor(t *testing.T) {
 	url := urlFor(owner, repo, ref)
 
 	require.Equal(t, "https://github.com/owner/repo/commit/abc123", url)
+}
+
+func TestCheckAllCIActionRetries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		actionRetries    int
+		rerunCount       int
+		rerunError       error
+		expectedExitCode *int
+	}{
+		{
+			name:             "CI failed with action-retries, workflows rerun",
+			actionRetries:    2,
+			rerunCount:       1,
+			rerunError:       nil,
+			expectedExitCode: nil, // Should continue waiting after rerun
+		},
+		{
+			name:             "CI failed with action-retries, no workflows to rerun",
+			actionRetries:    2,
+			rerunCount:       0,
+			rerunError:       nil,
+			expectedExitCode: &one, // Should fail immediately
+		},
+		{
+			name:             "CI failed with action-retries, rerun error continues waiting",
+			actionRetries:    2,
+			rerunCount:       0,
+			rerunError:       cli.Exit("rerun failed", 1),
+			expectedExitCode: nil, // Should continue waiting and retry later
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeCIStatusChecker := &FakeCIStatusChecker{
+				status:     github.CIStatusFailed,
+				RerunCount: tt.rerunCount,
+				RerunError: tt.rerunError,
+			}
+			cfg := &config{
+				recheckInterval: 1,
+				logger:          testLogger,
+			}
+			ciConf := &ciConfig{
+				owner:         "owner",
+				repo:          "repo",
+				ref:           "ref",
+				actionRetries: tt.actionRetries,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 1)
+			cancel()
+
+			err := checkCIStatus(ctx, fakeCIStatusChecker, cfg, ciConf)
+
+			if tt.expectedExitCode != nil {
+				var exitErr cli.ExitCoder
+				require.ErrorAs(t, err, &exitErr)
+				require.Equal(t, *tt.expectedExitCode, exitErr.ExitCode())
+			} else if err != nil {
+				require.NotNil(t, err)
+			}
+		})
+	}
+}
+
+func TestCheckSpecificCIActionRetries(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name             string
+		actionRetries    int
+		rerunCount       int
+		rerunError       error
+		expectedExitCode *int
+	}{
+		{
+			name:             "CI failed with action-retries, workflows rerun",
+			actionRetries:    2,
+			rerunCount:       1,
+			rerunError:       nil,
+			expectedExitCode: nil, // Should continue waiting after rerun
+		},
+		{
+			name:             "CI failed with action-retries, no workflows to rerun",
+			actionRetries:    2,
+			rerunCount:       0,
+			rerunError:       nil,
+			expectedExitCode: &one, // Should fail immediately
+		},
+		{
+			name:             "CI failed with action-retries, rerun error continues waiting",
+			actionRetries:    2,
+			rerunCount:       0,
+			rerunError:       cli.Exit("rerun failed", 1),
+			expectedExitCode: nil, // Should continue waiting and retry later
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fakeCIStatusChecker := &FakeCIStatusChecker{
+				status:     github.CIStatusFailed,
+				RerunCount: tt.rerunCount,
+				RerunError: tt.rerunError,
+			}
+			cfg := &config{
+				recheckInterval: 1,
+				logger:          testLogger,
+			}
+			ciConf := &ciConfig{
+				owner:         "owner",
+				repo:          "repo",
+				ref:           "ref",
+				checks:        []string{"check1", "check2"},
+				actionRetries: tt.actionRetries,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 1)
+			cancel()
+
+			err := checkCIStatus(ctx, fakeCIStatusChecker, cfg, ciConf)
+
+			if tt.expectedExitCode != nil {
+				var exitErr cli.ExitCoder
+				require.ErrorAs(t, err, &exitErr)
+				require.Equal(t, *tt.expectedExitCode, exitErr.ExitCode())
+			} else if err != nil {
+				require.NotNil(t, err)
+			}
+		})
+	}
 }
