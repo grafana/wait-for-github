@@ -160,42 +160,18 @@ type checkAllCI struct {
 	retriesDone   int
 }
 
-// tryRerunFailedWorkflows attempts to rerun failed workflows if retries are available.
-// Returns true if we should continue waiting (workflows were rerun or rerun failed temporarily).
-func (ci *checkAllCI) tryRerunFailedWorkflows(ctx context.Context) bool {
-	if ci.actionRetries == 0 || ci.retriesDone >= ci.actionRetries {
-		return false
-	}
-
-	ci.logger.InfoContext(ctx, "CI failed, attempting to retry failed GitHub Actions",
-		"retries_done", ci.retriesDone, "retries_allowed", ci.actionRetries)
-
-	rerunCount, err := ci.githubClient.RerunFailedWorkflowsForCommit(ctx, ci.owner, ci.repo, ci.ref)
-	if err != nil {
-		ci.logger.WarnContext(ctx, "failed to rerun workflows, will retry", "error", err)
-		return true // Continue waiting and try again
-	}
-
-	if rerunCount > 0 {
-		ci.retriesDone++
-		ci.logger.InfoContext(ctx, "re-ran failed workflows, continuing to wait",
-			"workflows_rerun", rerunCount, "retries_done", ci.retriesDone)
-		return true // Continue waiting
-	}
-
-	// No workflows were rerun (maybe non-Action failures), fail immediately
-	ci.logger.InfoContext(ctx, "CI failed with no GitHub Actions to retry, exiting")
-	return false
-}
-
 func (ci *checkAllCI) Check(ctx context.Context) error {
 	status, err := ci.githubClient.GetCIStatus(ctx, ci.owner, ci.repo, ci.ref, ci.excludes)
 	if err != nil {
 		return err
 	}
 
-	if status == github.CIStatusFailed && ci.tryRerunFailedWorkflows(ctx) {
-		return nil
+	if status == github.CIStatusFailed {
+		var shouldContinue bool
+		shouldContinue, ci.retriesDone = utils.TryRerunFailedWorkflows(ctx, ci.githubClient, ci.logger, ci.owner, ci.repo, ci.ref, ci.actionRetries, ci.retriesDone)
+		if shouldContinue {
+			return nil
+		}
 	}
 
 	return handleCIStatus(ci.logger, status, urlFor(ci.owner, ci.repo, ci.ref))
@@ -215,7 +191,9 @@ func (ci *checkSpecificCI) Check(ctx context.Context) error {
 
 	if status == github.CIStatusFailed {
 		ci.logger.InfoContext(ctx, "CI check failed, not waiting for other checks", "failed_checks", strings.Join(interestingChecks, ", "))
-		if ci.tryRerunFailedWorkflows(ctx) {
+		var shouldContinue bool
+		shouldContinue, ci.retriesDone = utils.TryRerunFailedWorkflows(ctx, ci.githubClient, ci.logger, ci.owner, ci.repo, ci.ref, ci.actionRetries, ci.retriesDone)
+		if shouldContinue {
 			return nil
 		}
 	}

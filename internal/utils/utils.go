@@ -24,11 +24,40 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/urfave/cli/v3"
 )
 
 type Check interface {
 	Check(ctx context.Context) error
+}
+
+// TryRerunFailedWorkflows attempts to rerun failed workflows if retries are available.
+// Returns whether to continue waiting, and the updated retriesDone count.
+func TryRerunFailedWorkflows(ctx context.Context, client github.RerunFailedWorkflows, logger *slog.Logger, owner, repo, ref string, actionRetries, retriesDone int) (bool, int) {
+	if actionRetries == 0 || retriesDone >= actionRetries {
+		return false, retriesDone
+	}
+
+	logger.InfoContext(ctx, "CI failed, attempting to retry failed GitHub Actions",
+		"retries_done", retriesDone, "retries_allowed", actionRetries)
+
+	rerunCount, err := client.RerunFailedWorkflowsForCommit(ctx, owner, repo, ref)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to rerun workflows, will retry", "error", err)
+		return true, retriesDone
+	}
+
+	if rerunCount > 0 {
+		retriesDone++
+		logger.InfoContext(ctx, "re-ran failed workflows, continuing to wait",
+			"workflows_rerun", rerunCount, "retries_done", retriesDone)
+		return true, retriesDone
+	}
+
+	// No workflows were rerun (maybe non-Action failures), fail immediately
+	logger.InfoContext(ctx, "CI failed with no GitHub Actions to retry, exiting")
+	return false, retriesDone
 }
 
 func RunUntilCancelledOrTimeout(ctx context.Context, logger *slog.Logger, check Check, interval time.Duration) error {
