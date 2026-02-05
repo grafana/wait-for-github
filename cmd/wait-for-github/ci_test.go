@@ -411,8 +411,10 @@ func TestCheckAllCIActionRetries(t *testing.T) {
 				var exitErr cli.ExitCoder
 				require.ErrorAs(t, err, &exitErr)
 				require.Equal(t, *tt.expectedExitCode, exitErr.ExitCode())
-			} else if err != nil {
-				require.NotNil(t, err)
+			} else {
+				// Context expired before CI could complete, which is expected
+				// since we cancelled the context immediately
+				require.Error(t, err)
 			}
 		})
 	}
@@ -481,8 +483,10 @@ func TestCheckSpecificCIActionRetries(t *testing.T) {
 				var exitErr cli.ExitCoder
 				require.ErrorAs(t, err, &exitErr)
 				require.Equal(t, *tt.expectedExitCode, exitErr.ExitCode())
-			} else if err != nil {
-				require.NotNil(t, err)
+			} else {
+				// Context expired before CI could complete, which is expected
+				// since we cancelled the context immediately
+				require.Error(t, err)
 			}
 		})
 	}
