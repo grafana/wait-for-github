@@ -202,8 +202,8 @@ func (ci *checkAllCI) Check(ctx context.Context) error {
 }
 
 type checkSpecificCI struct {
-	// same field as checkAllCI, and also a list of checks to wait for
-	checkAllCI
+	// same fields as checkAllCI, and also a list of checks to wait for
+	*checkAllCI
 	checks []string
 }
 
@@ -244,7 +244,7 @@ func checkCIStatus(timeoutCtx context.Context, githubClient checkCIStatusWithRer
 	}
 
 	specific := &checkSpecificCI{
-		checkAllCI: *all,
+		checkAllCI: all,
 		checks:     ciConf.checks,
 	}
 
