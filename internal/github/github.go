@@ -66,7 +66,7 @@ type GetDetailedCIStatus interface {
 }
 
 type RerunFailedWorkflows interface {
-	RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error)
+	RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, bool, error)
 }
 
 type CheckCIStatus interface {
@@ -687,8 +687,8 @@ func (c GHClient) GetDetailedCIStatus(ctx context.Context, owner, repoName, ref 
 }
 
 // RerunFailedWorkflowsForCommit finds all failed GitHub Actions workflow runs for a commit and re-runs them.
-// Returns the number of workflows that were re-run.
-func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repoName, commitHash string) (int, error) {
+// Returns the number of workflows that were re-run and whether any runs are still in progress.
+func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repoName, commitHash string) (int, bool, error) {
 	listOptions := github.ListOptions{
 		PerPage: 100,
 	}
@@ -700,16 +700,17 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 
 	var failedRunIDs []int64
 	seenRuns := make(map[int64]bool)
+	hasRunsInProgress := false
 
 	for {
 		runs, resp, err := c.client.Actions.ListRepositoryWorkflowRuns(ctx, owner, repoName, opts)
 		if err != nil {
-			return 0, fmt.Errorf("failed to list workflow runs: %w", err)
+			return 0, false, fmt.Errorf("failed to list workflow runs: %w", err)
 		}
 
 		respErr := c.handleResponseError(resp, "ListRepositoryWorkflowRuns", owner, repoName)
 		if respErr != nil {
-			return 0, respErr
+			return 0, false, respErr
 		}
 
 		for _, run := range runs.WorkflowRuns {
@@ -720,6 +721,11 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 
 			// See https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-workflow
 			// Can be one of: completed, action_required, cancelled, failure, neutral, skipped, stale, success, timed_out, in_progress, queued, requested, waiting, pending
+			status := strings.ToLower(run.GetStatus())
+			if status != "completed" {
+				hasRunsInProgress = true
+			}
+
 			conclusion := strings.ToLower(run.GetConclusion())
 			retryableConclusions := []string{"failure", "timed_out"}
 			if slices.Contains(retryableConclusions, conclusion) {
@@ -738,15 +744,15 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 		c.logger.InfoContext(ctx, "re-running failed workflow", "run_id", runID)
 		resp, err := c.client.Actions.RerunFailedJobsByID(ctx, owner, repoName, runID)
 		if err != nil {
-			return rerunCount, fmt.Errorf("failed to rerun workflow %d: %w", runID, err)
+			return rerunCount, hasRunsInProgress, fmt.Errorf("failed to rerun workflow %d: %w", runID, err)
 		}
 
 		respErr := c.handleResponseError(resp, "RerunFailedJobsByID", owner, repoName)
 		if respErr != nil {
-			return rerunCount, respErr
+			return rerunCount, hasRunsInProgress, respErr
 		}
 		rerunCount++
 	}
 
-	return rerunCount, nil
+	return rerunCount, hasRunsInProgress, nil
 }
