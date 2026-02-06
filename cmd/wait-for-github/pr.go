@@ -200,7 +200,7 @@ func (pr *prCheck) Check(ctx context.Context) error {
 			pr.logger.InfoContext(ctx, "CI failed, attempting to retry failed GitHub Actions",
 				"retries_done", pr.retriesDone, "retries_allowed", pr.actionRetries)
 
-			rerunCount, err := pr.githubClient.RerunFailedWorkflowsForCommit(ctx, pr.owner, pr.repo, sha)
+			rerunCount, hasRunsInProgress, err := pr.githubClient.RerunFailedWorkflowsForCommit(ctx, pr.owner, pr.repo, sha)
 			if err != nil {
 				pr.logger.WarnContext(ctx, "failed to rerun workflows, will retry", "error", err)
 				return nil // Continue waiting and try again
@@ -213,7 +213,16 @@ func (pr *prCheck) Check(ctx context.Context) error {
 				return nil // Continue waiting
 			}
 
-			// No workflows were rerun (maybe non-Action failures), fail immediately
+			if hasRunsInProgress {
+				// No concluded workflow runs to retry yet, but some are still running.
+				// This happens when a job fails but other jobs in the same workflow
+				// run are still in progress — the run won't have a "failure" conclusion
+				// until all jobs complete. Keep waiting so we can retry on the next poll.
+				pr.logger.InfoContext(ctx, "CI failed but workflow runs still in progress, will keep waiting")
+				return nil
+			}
+
+			// No workflows were rerun and none are in progress — fail immediately
 			pr.logger.InfoContext(ctx, "CI failed with no GitHub Actions to retry, exiting")
 			return cli.Exit("CI failed", 1)
 		}
