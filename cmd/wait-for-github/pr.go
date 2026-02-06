@@ -195,27 +195,10 @@ func (pr *prCheck) Check(ctx context.Context) error {
 	}
 
 	if status == github.CIStatusFailed {
-		// Check if we have retries left
-		if pr.actionRetries > 0 && pr.retriesDone < pr.actionRetries {
-			pr.logger.InfoContext(ctx, "CI failed, attempting to retry failed GitHub Actions",
-				"retries_done", pr.retriesDone, "retries_allowed", pr.actionRetries)
-
-			rerunCount, err := pr.githubClient.RerunFailedWorkflowsForCommit(ctx, pr.owner, pr.repo, sha)
-			if err != nil {
-				pr.logger.WarnContext(ctx, "failed to rerun workflows, will retry", "error", err)
-				return nil // Continue waiting and try again
-			}
-
-			if rerunCount > 0 {
-				pr.retriesDone++
-				pr.logger.InfoContext(ctx, "re-ran failed workflows, continuing to wait",
-					"workflows_rerun", rerunCount, "retries_done", pr.retriesDone)
-				return nil // Continue waiting
-			}
-
-			// No workflows were rerun (maybe non-Action failures), fail immediately
-			pr.logger.InfoContext(ctx, "CI failed with no GitHub Actions to retry, exiting")
-			return cli.Exit("CI failed", 1)
+		var shouldContinue bool
+		shouldContinue, pr.retriesDone = utils.TryRerunFailedWorkflows(ctx, pr.githubClient, pr.logger, pr.owner, pr.repo, sha, pr.actionRetries, pr.retriesDone)
+		if shouldContinue {
+			return nil // Continue waiting
 		}
 
 		pr.logger.InfoContext(ctx, "CI failed, exiting")
