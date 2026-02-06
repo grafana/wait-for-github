@@ -854,8 +854,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 				},
 			},
@@ -869,8 +869,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("failure"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionFailure),
 					},
 				},
 			},
@@ -884,7 +884,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:   github.String("check1"),
-						Status: github.String("queued"),
+						Status: github.String(RunStatusQueued),
 					},
 				},
 			},
@@ -898,7 +898,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:   github.String("check1"),
-						Status: github.String("in_progress"),
+						Status: github.String(RunStatusInProgress),
 					},
 				},
 			},
@@ -912,8 +912,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Conclusion: github.String("skipped"),
-						Status:     github.String("completed"),
+						Conclusion: github.String(RunConclusionSkipped),
+						Status:     github.String(RunStatusCompleted),
 					},
 				},
 			},
@@ -927,7 +927,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Context: github.String("check1"),
-						State:   github.String("success"),
+						State:   github.String(StatusStateSuccess),
 					},
 				},
 			},
@@ -945,7 +945,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 					},
 					{
 						Context: github.String("check1"),
-						State:   github.String("success"),
+						State:   github.String(StatusStateSuccess),
 					},
 				},
 			},
@@ -965,7 +965,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Context: github.String("check1"),
-						State:   github.String("success"),
+						State:   github.String(StatusStateSuccess),
 					},
 				},
 			},
@@ -979,7 +979,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Context: github.String("check1"),
-						State:   github.String("failure"),
+						State:   github.String(StatusStateFailure),
 					},
 				},
 			},
@@ -993,7 +993,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Context: github.String("check1"),
-						State:   github.String("pending"),
+						State:   github.String(StatusStatePending),
 					},
 				},
 			},
@@ -1007,7 +1007,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Context: github.String("check1"),
-						State:   github.String("error"),
+						State:   github.String(StatusStateError),
 					},
 				},
 			},
@@ -1021,13 +1021,13 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 					{
 						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1041,15 +1041,15 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 				},
 				{
 					{
 						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1061,13 +1061,13 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 					{
 						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("failure"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionFailure),
 					},
 				},
 			},
@@ -1081,15 +1081,15 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 				},
 				{
 					{
 						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("failure"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionFailure),
 					},
 				},
 			},
@@ -1103,12 +1103,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 					{
 						Name:   github.String("check2"),
-						Status: github.String("queued"),
+						Status: github.String(RunStatusQueued),
 					},
 				},
 			},
@@ -1122,13 +1122,13 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Context: github.String("check1"),
-						State:   github.String("success"),
+						State:   github.String(StatusStateSuccess),
 					},
 				},
 				{
 					{
 						Context: github.String("check2"),
-						State:   github.String("success"),
+						State:   github.String(StatusStateSuccess),
 					},
 				},
 			},
@@ -1136,15 +1136,15 @@ func TestGetCIStatusForChecks(t *testing.T) {
 				{
 					{
 						Name:       github.String("check3"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 				},
 				{
 					{
 						Name:       github.String("check4"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Status:     github.String(RunStatusCompleted),
+						Conclusion: github.String(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1313,7 +1313,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reruns failed workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("failure")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
 			},
 			expectedRerunCount:  1,
 			expectedRerunCalled: 1,
@@ -1321,7 +1321,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reruns timed_out workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("timed_out")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionTimedOut)},
 			},
 			expectedRerunCount:  1,
 			expectedRerunCalled: 1,
@@ -1329,7 +1329,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "does not rerun successful workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("success")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionSuccess)},
 			},
 			expectedRerunCount:  0,
 			expectedRerunCalled: 0,
@@ -1337,7 +1337,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "does not rerun cancelled workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("cancelled")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionCancelled)},
 			},
 			expectedRerunCount:  0,
 			expectedRerunCalled: 0,
@@ -1345,7 +1345,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "does not rerun skipped workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("skipped")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionSkipped)},
 			},
 			expectedRerunCount:  0,
 			expectedRerunCalled: 0,
@@ -1353,9 +1353,9 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reruns multiple failed workflows",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("failure")},
-				{ID: github.Int64(2), Status: github.String("completed"), Conclusion: github.String("timed_out")},
-				{ID: github.Int64(3), Status: github.String("completed"), Conclusion: github.String("success")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
+				{ID: github.Int64(2), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionTimedOut)},
+				{ID: github.Int64(3), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionSuccess)},
 			},
 			expectedRerunCount:  2,
 			expectedRerunCalled: 2,
@@ -1369,7 +1369,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "rerun API failure returns error",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("failure")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
 			},
 			rerunShouldFail:     true,
 			expectedRerunCount:  0,
@@ -1379,7 +1379,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reports in-progress runs",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("in_progress"), Conclusion: github.String("")},
+				{ID: github.Int64(1), Status: github.String(RunStatusInProgress), Conclusion: github.String("")},
 			},
 			expectedRerunCount:        0,
 			expectedHasRunsInProgress: true,
@@ -1388,8 +1388,8 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "in-progress run alongside failed run",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("failure")},
-				{ID: github.Int64(2), Status: github.String("in_progress"), Conclusion: github.String("")},
+				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
+				{ID: github.Int64(2), Status: github.String(RunStatusInProgress), Conclusion: github.String("")},
 			},
 			expectedRerunCount:        1,
 			expectedHasRunsInProgress: true,
@@ -1469,8 +1469,8 @@ func TestRerunFailedWorkflowsForCommit_DeduplicatesRuns(t *testing.T) {
 
 	// Simulate the same run appearing twice (edge case)
 	workflowRuns := []*github.WorkflowRun{
-		{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("failure")},
-		{ID: github.Int64(1), Status: github.String("completed"), Conclusion: github.String("failure")}, // duplicate
+		{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
+		{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)}, // duplicate
 	}
 
 	mockedHTTPClient := mock.NewMockedHTTPClient(
