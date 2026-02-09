@@ -11,7 +11,7 @@ require (
 	github.com/lmittmann/tint v1.1.2
 	github.com/migueleliasweb/go-github-mock v1.5.0
 	github.com/olekukonko/tablewriter v1.1.3
-	github.com/shurcooL/graphql v0.0.0-20230722043721-ed46e5a46466
+	github.com/shurcooL/graphql v0.0.0-20240915155400-7ee5256398cf
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.6.2
 	github.com/willabides/actionslog v0.5.1
