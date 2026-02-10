@@ -1306,7 +1306,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		workflowRuns              []*github.WorkflowRun
 		rerunShouldFail           bool
 		expectedRerunCount        int
-		expectedHasRunsInProgress bool
+		expectedHasIncompleteRuns bool
 		expectedError             bool
 		expectedRerunCalled       int
 	}{
@@ -1382,7 +1382,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 				{ID: github.Int64(1), Status: github.String(RunStatusInProgress), Conclusion: github.String("")},
 			},
 			expectedRerunCount:        0,
-			expectedHasRunsInProgress: true,
+			expectedHasIncompleteRuns: true,
 			expectedRerunCalled:       0,
 		},
 		{
@@ -1392,7 +1392,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 				{ID: github.Int64(2), Status: github.String(RunStatusInProgress), Conclusion: github.String("")},
 			},
 			expectedRerunCount:        1,
-			expectedHasRunsInProgress: true,
+			expectedHasIncompleteRuns: true,
 			expectedRerunCalled:       1,
 		},
 	}
@@ -1426,7 +1426,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 			)
 
 			ghClient := newClientFromMock(t, mockedHTTPClient, "")
-			count, hasRunsInProgress, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+			count, hasIncompleteRuns, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
 
 			if tt.expectedError {
 				require.Error(t, err)
@@ -1434,7 +1434,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.Equal(t, tt.expectedRerunCount, count)
-			require.Equal(t, tt.expectedHasRunsInProgress, hasRunsInProgress)
+			require.Equal(t, tt.expectedHasIncompleteRuns, hasIncompleteRuns)
 			require.Equal(t, tt.expectedRerunCalled, rerunCallCount)
 		})
 	}
@@ -1491,11 +1491,11 @@ func TestRerunFailedWorkflowsForCommit_DeduplicatesRuns(t *testing.T) {
 	)
 
 	ghClient := newClientFromMock(t, mockedHTTPClient, "")
-	count, hasRunsInProgress, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+	count, hasIncompleteRuns, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
 
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
-	require.False(t, hasRunsInProgress)
+	require.False(t, hasIncompleteRuns)
 	require.Equal(t, 1, rerunCallCount)
 }
 

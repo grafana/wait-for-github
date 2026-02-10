@@ -722,7 +722,7 @@ func (c GHClient) GetDetailedCIStatus(ctx context.Context, owner, repoName, ref 
 }
 
 // RerunFailedWorkflowsForCommit finds all failed GitHub Actions workflow runs for a commit and re-runs them.
-// Returns the number of workflows that were re-run and whether any runs are still in progress.
+// Returns the number of workflows that were re-run and whether any runs are still incomplete (e.g. in_progress, queued, waiting).
 func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repoName, commitHash string) (int, bool, error) {
 	listOptions := github.ListOptions{
 		PerPage: 100,
@@ -735,7 +735,7 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 
 	var failedRunIDs []int64
 	seenRuns := make(map[int64]bool)
-	hasRunsInProgress := false
+	hasIncompleteRuns := false
 
 	for {
 		runs, resp, err := c.client.Actions.ListRepositoryWorkflowRuns(ctx, owner, repoName, opts)
@@ -756,7 +756,7 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 
 			status := strings.ToLower(run.GetStatus())
 			if status != RunStatusCompleted {
-				hasRunsInProgress = true
+				hasIncompleteRuns = true
 			}
 
 			conclusion := strings.ToLower(run.GetConclusion())
@@ -777,15 +777,15 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 		c.logger.InfoContext(ctx, "re-running failed workflow", "run_id", runID)
 		resp, err := c.client.Actions.RerunFailedJobsByID(ctx, owner, repoName, runID)
 		if err != nil {
-			return rerunCount, hasRunsInProgress, fmt.Errorf("failed to rerun workflow %d: %w", runID, err)
+			return rerunCount, hasIncompleteRuns, fmt.Errorf("failed to rerun workflow %d: %w", runID, err)
 		}
 
 		respErr := c.handleResponseError(resp, "RerunFailedJobsByID", owner, repoName)
 		if respErr != nil {
-			return rerunCount, hasRunsInProgress, respErr
+			return rerunCount, hasIncompleteRuns, respErr
 		}
 		rerunCount++
 	}
 
-	return rerunCount, hasRunsInProgress, nil
+	return rerunCount, hasIncompleteRuns, nil
 }
