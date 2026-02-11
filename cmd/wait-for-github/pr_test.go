@@ -39,9 +39,10 @@ type fakeGithubClientPRCheck struct {
 	getCIStatusError           error
 	rerunFailedWorkflowsError  error
 
-	CIStatus         github.CIStatus
-	RerunCount       int
-	RerunCalledCount int
+	CIStatus           github.CIStatus
+	RerunCount         int
+	HasRunsInProgress  bool
+	RerunCalledCount   int
 }
 
 func (fg *fakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
@@ -56,9 +57,9 @@ func (fg *fakeGithubClientPRCheck) GetCIStatus(ctx context.Context, owner, repo 
 	return fg.CIStatus, fg.getCIStatusError
 }
 
-func (fg *fakeGithubClientPRCheck) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error) {
+func (fg *fakeGithubClientPRCheck) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, bool, error) {
 	fg.RerunCalledCount++
-	return fg.RerunCount, fg.rerunFailedWorkflowsError
+	return fg.RerunCount, fg.HasRunsInProgress, fg.rerunFailedWorkflowsError
 }
 
 func TestPRCheck(t *testing.T) {
@@ -174,6 +175,50 @@ func TestPRCheck(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestPRCheckRetryWithInProgressWorkflow tests the race condition where GetCIStatus
+// reports failure (a job has failed) but the workflow run hasn't concluded yet because
+// other jobs are still running. RerunFailedWorkflowsForCommit returns 0 on the first
+// call (no concluded runs to retry), and on the next poll the workflow has completed
+// and can be retried.
+func TestPRCheckRetryWithInProgressWorkflow(t *testing.T) {
+	t.Parallel()
+
+	fakeClient := &fakeGithubClientPRCheck{
+		CIStatus:          github.CIStatusFailed,
+		RerunCount:        0,    // Workflow run hasn't concluded yet, no runs match "failure" conclusion
+		HasRunsInProgress: true, // Other jobs in the workflow are still running
+	}
+
+	pr := &prCheck{
+		prConfig: prConfig{
+			owner:         "owner",
+			repo:          "repo",
+			pr:            1,
+			actionRetries: 2,
+		},
+		githubClient: fakeClient,
+		logger:       testLogger,
+	}
+
+	// First check: CI reports failure (from a failed job), but the workflow run
+	// is still in progress so RerunFailedWorkflowsForCommit finds nothing to retry.
+	// Should continue waiting because runs are still in progress.
+	err := pr.Check(context.Background())
+	require.NoError(t, err, "should continue waiting when workflow runs are still in progress")
+	require.Equal(t, 1, fakeClient.RerunCalledCount)
+	require.Equal(t, 0, pr.retriesDone, "retriesDone should not increment when no workflows were rerun")
+
+	// Simulate the workflow run completing — it now has conclusion "failure" and is retryable.
+	fakeClient.RerunCount = 1
+	fakeClient.HasRunsInProgress = false
+
+	// Second check: CI still failed, workflow run now concluded and gets retried.
+	err = pr.Check(context.Background())
+	require.NoError(t, err, "should continue waiting after successful rerun")
+	require.Equal(t, 2, fakeClient.RerunCalledCount)
+	require.Equal(t, 1, pr.retriesDone, "retriesDone should increment after successful rerun")
 }
 
 type fakeFileWriter struct {

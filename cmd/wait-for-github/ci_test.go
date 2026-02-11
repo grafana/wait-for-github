@@ -47,9 +47,9 @@ func (c *FakeCIStatusChecker) GetDetailedCIStatus(ctx context.Context, owner, re
 	return nil, c.err
 }
 
-func (c *FakeCIStatusChecker) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error) {
+func (c *FakeCIStatusChecker) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, bool, error) {
 	c.RerunCalledCount++
-	return c.RerunCount, c.RerunError
+	return c.RerunCount, false, c.RerunError
 }
 
 func TestHandleCIStatus(t *testing.T) {
@@ -301,8 +301,8 @@ func (c *UnknownCIStatusChecker) GetDetailedCIStatus(ctx context.Context, owner,
 	return nil, nil
 }
 
-func (c *UnknownCIStatusChecker) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error) {
-	return 0, nil
+func (c *UnknownCIStatusChecker) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, bool, error) {
+	return 0, false, nil
 }
 
 func TestUnknownCIStatusRetries(t *testing.T) {

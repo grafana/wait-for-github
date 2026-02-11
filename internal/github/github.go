@@ -66,7 +66,7 @@ type GetDetailedCIStatus interface {
 }
 
 type RerunFailedWorkflows interface {
-	RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, error)
+	RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, bool, error)
 }
 
 type CheckCIStatus interface {
@@ -97,6 +97,41 @@ const (
 	CIStatusPending
 	CIStatusUnknown
 	CIStatusSkipped
+)
+
+// Workflow run and check run status values.
+// See: https://docs.github.com/en/rest/actions/workflow-runs
+const (
+	RunStatusCompleted      = "completed"
+	RunStatusActionRequired = "action_required"
+	RunStatusInProgress     = "in_progress"
+	RunStatusQueued         = "queued"
+	RunStatusRequested      = "requested"
+	RunStatusWaiting        = "waiting"
+	RunStatusPending        = "pending"
+)
+
+// Workflow run and check run conclusion values.
+// See: https://docs.github.com/en/rest/actions/workflow-runs
+const (
+	RunConclusionSuccess        = "success"
+	RunConclusionFailure        = "failure"
+	RunConclusionCancelled      = "cancelled"
+	RunConclusionTimedOut       = "timed_out"
+	RunConclusionSkipped        = "skipped"
+	RunConclusionNeutral        = "neutral"
+	RunConclusionStale          = "stale"
+	RunConclusionActionRequired = "action_required"
+	RunConclusionStartupFailure = "startup_failure"
+)
+
+// Commit status context state values.
+// See: https://docs.github.com/en/rest/commits/statuses
+const (
+	StatusStateSuccess = "success"
+	StatusStateFailure = "failure"
+	StatusStatePending = "pending"
+	StatusStateError   = "error"
 )
 
 func (c CIStatus) String() string {
@@ -160,15 +195,15 @@ func (c CheckRun) String() string {
 
 func (c CheckRun) Outcome() CIStatus {
 	switch strings.ToLower(c.Status) {
-	case "completed":
+	case RunStatusCompleted:
 		switch strings.ToLower(c.Conclusion) {
-		case "success":
+		case RunConclusionSuccess:
 			return CIStatusPassed
-		case "startup_failure":
+		case RunConclusionStartupFailure:
 			return CIStatusFailed
-		case "failure":
+		case RunConclusionFailure:
 			return CIStatusFailed
-		case "skipped":
+		case RunConclusionSkipped:
 			return CIStatusSkipped
 		default:
 			return CIStatusUnknown
@@ -197,11 +232,11 @@ func (s StatusContext) String() string {
 
 func (s StatusContext) Outcome() CIStatus {
 	switch strings.ToLower(s.State) {
-	case "success":
+	case StatusStateSuccess:
 		return CIStatusPassed
-	case "failure":
+	case StatusStateFailure:
 		return CIStatusFailed
-	case "error":
+	case StatusStateError:
 		return CIStatusFailed
 	default:
 		return CIStatusUnknown
@@ -456,9 +491,9 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, 
 		return CIStatusPassed, nil
 	}
 
-	isSuccess := strings.ToLower(rollup.State) == "success"
-	isFailure := strings.ToLower(rollup.State) == "failure"
-	isPending := strings.ToLower(rollup.State) == "pending"
+	isSuccess := strings.ToLower(rollup.State) == StatusStateSuccess
+	isFailure := strings.ToLower(rollup.State) == StatusStateFailure
+	isPending := strings.ToLower(rollup.State) == StatusStatePending
 
 	// return early if all checks and statuses are successful. no need to evaluate individual nodes in the response.
 	if isSuccess {
@@ -482,8 +517,8 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, 
 		}
 
 		for _, node := range nodes {
-			isCheckFailure := strings.ToLower(node.CheckRun.Conclusion) == "failure"
-			isStatusFailure := strings.ToLower(node.StatusContext.State) == "failure"
+			isCheckFailure := strings.ToLower(node.CheckRun.Conclusion) == RunConclusionFailure
+			isStatusFailure := strings.ToLower(node.StatusContext.State) == StatusStateFailure
 
 			checkRunName := node.CheckRun.Name
 			statusContextName := node.StatusContext.Context
@@ -558,18 +593,18 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 
 	for _, checkRun := range checkRuns {
 		switch checkRun.GetStatus() {
-		case "completed":
+		case RunStatusCompleted:
 			switch checkRun.GetConclusion() {
-			case "success":
+			case RunConclusionSuccess:
 				return CIStatusPassed, nil
-			case "skipped":
+			case RunConclusionSkipped:
 				return CIStatusPassed, nil
 			default:
 				return CIStatusFailed, nil
 			}
-		case "queued":
+		case RunStatusQueued:
 			return CIStatusPending, nil
-		case "in_progress":
+		case RunStatusInProgress:
 			return CIStatusPending, nil
 		}
 	}
@@ -610,13 +645,13 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 		}
 
 		switch status.GetState() {
-		case "success":
+		case StatusStateSuccess:
 			return CIStatusPassed, nil
-		case "failure":
+		case StatusStateFailure:
 			return CIStatusFailed, nil
-		case "pending":
+		case StatusStatePending:
 			return CIStatusPending, nil
-		case "error":
+		case StatusStateError:
 			return CIStatusFailed, nil
 		}
 	}
@@ -687,8 +722,8 @@ func (c GHClient) GetDetailedCIStatus(ctx context.Context, owner, repoName, ref 
 }
 
 // RerunFailedWorkflowsForCommit finds all failed GitHub Actions workflow runs for a commit and re-runs them.
-// Returns the number of workflows that were re-run.
-func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repoName, commitHash string) (int, error) {
+// Returns the number of workflows that were re-run and whether any runs are still incomplete (e.g. in_progress, queued, waiting).
+func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repoName, commitHash string) (int, bool, error) {
 	listOptions := github.ListOptions{
 		PerPage: 100,
 	}
@@ -700,16 +735,17 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 
 	var failedRunIDs []int64
 	seenRuns := make(map[int64]bool)
+	hasIncompleteRuns := false
 
 	for {
 		runs, resp, err := c.client.Actions.ListRepositoryWorkflowRuns(ctx, owner, repoName, opts)
 		if err != nil {
-			return 0, fmt.Errorf("failed to list workflow runs: %w", err)
+			return 0, false, fmt.Errorf("failed to list workflow runs: %w", err)
 		}
 
 		respErr := c.handleResponseError(resp, "ListRepositoryWorkflowRuns", owner, repoName)
 		if respErr != nil {
-			return 0, respErr
+			return 0, false, respErr
 		}
 
 		for _, run := range runs.WorkflowRuns {
@@ -718,10 +754,13 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 			}
 			seenRuns[run.GetID()] = true
 
-			// See https://docs.github.com/en/rest/actions/workflow-runs?apiVersion=2022-11-28#list-workflow-runs-for-a-workflow
-			// Can be one of: completed, action_required, cancelled, failure, neutral, skipped, stale, success, timed_out, in_progress, queued, requested, waiting, pending
+			status := strings.ToLower(run.GetStatus())
+			if status != RunStatusCompleted {
+				hasIncompleteRuns = true
+			}
+
 			conclusion := strings.ToLower(run.GetConclusion())
-			retryableConclusions := []string{"failure", "timed_out"}
+			retryableConclusions := []string{RunConclusionFailure, RunConclusionTimedOut}
 			if slices.Contains(retryableConclusions, conclusion) {
 				failedRunIDs = append(failedRunIDs, run.GetID())
 			}
@@ -738,15 +777,15 @@ func (c GHClient) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo
 		c.logger.InfoContext(ctx, "re-running failed workflow", "run_id", runID)
 		resp, err := c.client.Actions.RerunFailedJobsByID(ctx, owner, repoName, runID)
 		if err != nil {
-			return rerunCount, fmt.Errorf("failed to rerun workflow %d: %w", runID, err)
+			return rerunCount, hasIncompleteRuns, fmt.Errorf("failed to rerun workflow %d: %w", runID, err)
 		}
 
 		respErr := c.handleResponseError(resp, "RerunFailedJobsByID", owner, repoName)
 		if respErr != nil {
-			return rerunCount, respErr
+			return rerunCount, hasIncompleteRuns, respErr
 		}
 		rerunCount++
 	}
 
-	return rerunCount, nil
+	return rerunCount, hasIncompleteRuns, nil
 }
