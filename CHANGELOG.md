@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.4.0](https://github.com/grafana/wait-for-github/compare/v1.3.0...v1.4.0) (2026-02-12)
+
+
+### 🎉 Features
+
+* add `--action-retries` option to ci ([47c25da](https://github.com/grafana/wait-for-github/commit/47c25da100c303a022bf236958865a8106c59587))
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v81 to v82 ([6b1d9a9](https://github.com/grafana/wait-for-github/commit/6b1d9a9c0e15c598c592b933a5b173e67fcd9aa4))
+* **deps:** update module github.com/lmittmann/tint to v1.1.3 ([bc15909](https://github.com/grafana/wait-for-github/commit/bc1590959c879476003d54d494450ae7546423af))
+* **deps:** update module golang.org/x/oauth2 to v0.35.0 ([81a4a82](https://github.com/grafana/wait-for-github/commit/81a4a822ce566848a6da5d7428aa714c10ea05ad))
+* don't exit immediately when no concluded workflow runs to retry ([#465](https://github.com/grafana/wait-for-github/issues/465)) ([13eabae](https://github.com/grafana/wait-for-github/commit/13eabae4a23a6040b1936e1458ba2b779672caf0))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/checkout action to v6.0.2 ([0b8d70a](https://github.com/grafana/wait-for-github/commit/0b8d70a2c52ca975412cac842dde3e157b3a9071))
+* **deps:** update github/codeql-action action to v4.31.11 ([39ea2b1](https://github.com/grafana/wait-for-github/commit/39ea2b1e5e8211f8852f1017b2d8c4916ae8f734))
+* **deps:** update github/codeql-action action to v4.32.1 ([0a919f9](https://github.com/grafana/wait-for-github/commit/0a919f930192d843ea92b762fd127c63fc9dadbb))
+* **deps:** update github/codeql-action action to v4.32.2 ([ab9fcec](https://github.com/grafana/wait-for-github/commit/ab9fcec757f17cdb0313d95bb35eebdd42fee306))
+* **deps:** update grafana/shared-workflows/ action to ([a6afa8c](https://github.com/grafana/wait-for-github/commit/a6afa8cd5853c6ecea9c2e15a8bbe8de69e972c7))
+* **deps:** update grafana/shared-workflows/ action to ([065f654](https://github.com/grafana/wait-for-github/commit/065f654be1496d4fd8568a1161a659326afafe80))
+* **deps:** update grafana/shared-workflows/ action to ([ac027a2](https://github.com/grafana/wait-for-github/commit/ac027a2dd471119b6a41907f2992407973f99286))
+* **deps:** update grafana/shared-workflows/ action to ([fd0a456](https://github.com/grafana/wait-for-github/commit/fd0a4564341dc6b7d0086d4c59c4ceeec5414e47))
+
 ## [1.3.0](https://github.com/grafana/wait-for-github/compare/v1.2.0...v1.3.0) (2026-01-21)
 
 
