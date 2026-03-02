@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.4.1](https://github.com/grafana/wait-for-github/compare/v1.4.0...v1.4.1) (2026-03-02)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update github.com/shurcool/graphql digest to 7ee5256 ([#468](https://github.com/grafana/wait-for-github/issues/468)) ([9292626](https://github.com/grafana/wait-for-github/commit/9292626de29c0495a1ce95f8497d6d0c6e12a71d))
+* **deps:** update module golang.org/x/term to v0.40.0 ([#469](https://github.com/grafana/wait-for-github/issues/469)) ([1c9485a](https://github.com/grafana/wait-for-github/commit/1c9485a71653ab893ecf6d8529744569228b997f))
+* **deps:** update module golang.org/x/text to v0.34.0 ([#470](https://github.com/grafana/wait-for-github/issues/470)) ([e545f9f](https://github.com/grafana/wait-for-github/commit/e545f9f23e8fe630a448b0e5456646221cc35e41))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/setup-go action to v6.3.0 ([#479](https://github.com/grafana/wait-for-github/issues/479)) ([b6a1ba6](https://github.com/grafana/wait-for-github/commit/b6a1ba65e1a55abff63398894ce78fe8823fef25))
+* **deps:** update github/codeql-action action to v4.32.3 ([#474](https://github.com/grafana/wait-for-github/issues/474)) ([8074025](https://github.com/grafana/wait-for-github/commit/80740256d987552effea07b0c36b4723d29292db))
+* **deps:** update github/codeql-action action to v4.32.4 ([#476](https://github.com/grafana/wait-for-github/issues/476)) ([c652cad](https://github.com/grafana/wait-for-github/commit/c652cad5ae4e8b63291608650040c317deeb67b8))
+* **deps:** update grafana/shared-workflows/ action to ([#464](https://github.com/grafana/wait-for-github/issues/464)) ([327ad6e](https://github.com/grafana/wait-for-github/commit/327ad6e9b9163853a93acb5a40d849c3203b3ce6))
+* **deps:** update grafana/shared-workflows/ action to ([#472](https://github.com/grafana/wait-for-github/issues/472)) ([b4541a2](https://github.com/grafana/wait-for-github/commit/b4541a2cff1160dc3f84d84992f2079d42c661b8))
+* **deps:** update grafana/shared-workflows/ action to ([#477](https://github.com/grafana/wait-for-github/issues/477)) ([5af6821](https://github.com/grafana/wait-for-github/commit/5af68210810ddfa3fbb2c83f590cabf04543b39a))
+
 ## [1.4.0](https://github.com/grafana/wait-for-github/compare/v1.3.0...v1.4.0) (2026-02-12)
 
 
