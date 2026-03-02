@@ -29,7 +29,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: grafana/shared-workflows/.github/workflows/docker-build-push-multiarch.yml@ea3a7bb9ed552a704d7731eabbd06d5d789fa576 # main
+    uses: grafana/shared-workflows/.github/workflows/docker-build-push-multiarch.yml@c6b07529443393154d824d1ad0e707f4b3d090f6 # main
     with:
       platforms: linux/amd64,linux/arm64
       tags: |
