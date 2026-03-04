@@ -81,8 +81,8 @@ github.com/shurcooL/graphql v0.0.0-20240915155400-7ee5256398cf h1:o1uxfymjZ7jZ4M
 github.com/shurcooL/graphql v0.0.0-20240915155400-7ee5256398cf/go.mod h1:9dIRpgIY7hVhoqfe0/FcYp0bpInZaT7dc3BYOprrIUE=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
-github.com/urfave/cli/v3 v3.6.2 h1:lQuqiPrZ1cIz8hz+HcrG0TNZFxU70dPZ3Yl+pSrH9A8=
-github.com/urfave/cli/v3 v3.6.2/go.mod h1:ysVLtOEmg2tOy6PknnYVhDoouyC/6N42TMeoMzskhso=
+github.com/urfave/cli/v3 v3.7.0 h1:AGSnbUyjtLiM+WJUb4dzXKldl/gL+F8OwmRDtVr6g2U=
+github.com/urfave/cli/v3 v3.7.0/go.mod h1:ysVLtOEmg2tOy6PknnYVhDoouyC/6N42TMeoMzskhso=
 github.com/willabides/actionslog v0.5.1 h1:dJ/Cxg8vO1pEohgC2O4CW1tCWFKJrYJXTZDWYJQK0+E=
 github.com/willabides/actionslog v0.5.1/go.mod h1:WDufDP3XZUMBOmau2BvfVCGYuUcVRZI6Eqy8ZRw4pJ8=
 golang.org/x/crypto v0.45.0 h1:jMBrvKuj23MTlT0bQEOBcAE0mjg8mK9RXFhRH6nyF3Q=
