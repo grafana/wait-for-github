@@ -793,6 +793,71 @@ func TestGetCIStatus(t *testing.T) {
 			excludedChecks: []string{"deployment", "workflow"},
 			expectedStatus: CIStatusFailed,
 		},
+		{
+			name: "status context with error state treated as failure",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 0,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "StatusContext",
+											"context": "dev-policy-bot: master",
+											"state": "ERROR"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "excluded status context with error state",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 0,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "StatusContext",
+											"context": "dev-policy-bot: master",
+											"state": "ERROR"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			excludedChecks: []string{"dev-policy-bot: master"},
+			expectedStatus: CIStatusPassed,
+		},
 	}
 
 	for _, tt := range tests {
