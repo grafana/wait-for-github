@@ -518,7 +518,8 @@ func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, 
 
 		for _, node := range nodes {
 			isCheckFailure := strings.ToLower(node.CheckRun.Conclusion) == RunConclusionFailure
-			isStatusFailure := strings.ToLower(node.StatusContext.State) == StatusStateFailure
+			isStatusFailure := strings.ToLower(node.StatusContext.State) == StatusStateFailure ||
+				strings.ToLower(node.StatusContext.State) == StatusStateError
 
 			checkRunName := node.CheckRun.Name
 			statusContextName := node.StatusContext.Context
