@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.4.1](https://github.com/grafana/wait-for-github/compare/v1.4.0...v1.4.1) (2026-03-13)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update github.com/shurcool/graphql digest to 7ee5256 ([#468](https://github.com/grafana/wait-for-github/issues/468)) ([9292626](https://github.com/grafana/wait-for-github/commit/9292626de29c0495a1ce95f8497d6d0c6e12a71d))
+* **deps:** update module github.com/google/go-github/v82 to v84 ([#480](https://github.com/grafana/wait-for-github/issues/480)) ([8ffbca4](https://github.com/grafana/wait-for-github/commit/8ffbca46d0dbe4968c7958d800d2356f1821015b))
+* **deps:** update module github.com/urfave/cli/v3 to v3.7.0 ([#481](https://github.com/grafana/wait-for-github/issues/481)) ([8cd55af](https://github.com/grafana/wait-for-github/commit/8cd55af1e2d0e984d53a2a8419032829d06a2e78))
+* **deps:** update module golang.org/x/oauth2 to v0.36.0 ([#484](https://github.com/grafana/wait-for-github/issues/484)) ([2a61a03](https://github.com/grafana/wait-for-github/commit/2a61a03e54247158a3681b36bea0a4d01cdd9ba0))
+* **deps:** update module golang.org/x/term to v0.40.0 ([#469](https://github.com/grafana/wait-for-github/issues/469)) ([1c9485a](https://github.com/grafana/wait-for-github/commit/1c9485a71653ab893ecf6d8529744569228b997f))
+* **deps:** update module golang.org/x/term to v0.41.0 ([#488](https://github.com/grafana/wait-for-github/issues/488)) ([3a20546](https://github.com/grafana/wait-for-github/commit/3a205460df1e45c4c704cb3ef61c64bc9da94a5f))
+* **deps:** update module golang.org/x/text to v0.34.0 ([#470](https://github.com/grafana/wait-for-github/issues/470)) ([e545f9f](https://github.com/grafana/wait-for-github/commit/e545f9f23e8fe630a448b0e5456646221cc35e41))
+* **deps:** update module golang.org/x/text to v0.35.0 ([#489](https://github.com/grafana/wait-for-github/issues/489)) ([7b9f631](https://github.com/grafana/wait-for-github/commit/7b9f6317d617d4081be15d9be33b60c200a24900))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/setup-go action to v6.3.0 ([#479](https://github.com/grafana/wait-for-github/issues/479)) ([b6a1ba6](https://github.com/grafana/wait-for-github/commit/b6a1ba65e1a55abff63398894ce78fe8823fef25))
+* **deps:** update github/codeql-action action to v4.32.3 ([#474](https://github.com/grafana/wait-for-github/issues/474)) ([8074025](https://github.com/grafana/wait-for-github/commit/80740256d987552effea07b0c36b4723d29292db))
+* **deps:** update github/codeql-action action to v4.32.4 ([#476](https://github.com/grafana/wait-for-github/issues/476)) ([c652cad](https://github.com/grafana/wait-for-github/commit/c652cad5ae4e8b63291608650040c317deeb67b8))
+* **deps:** update github/codeql-action action to v4.32.5 ([#482](https://github.com/grafana/wait-for-github/issues/482)) ([159d067](https://github.com/grafana/wait-for-github/commit/159d067ba8be135f015dcaddbd55be01d53beb55))
+* **deps:** update github/codeql-action action to v4.32.6 ([#485](https://github.com/grafana/wait-for-github/issues/485)) ([755aaa5](https://github.com/grafana/wait-for-github/commit/755aaa56d547276927dc329b64325dcad5caa00d))
+* **deps:** update grafana/shared-workflows/ action to ([#464](https://github.com/grafana/wait-for-github/issues/464)) ([327ad6e](https://github.com/grafana/wait-for-github/commit/327ad6e9b9163853a93acb5a40d849c3203b3ce6))
+* **deps:** update grafana/shared-workflows/ action to ([#472](https://github.com/grafana/wait-for-github/issues/472)) ([b4541a2](https://github.com/grafana/wait-for-github/commit/b4541a2cff1160dc3f84d84992f2079d42c661b8))
+* **deps:** update grafana/shared-workflows/ action to ([#477](https://github.com/grafana/wait-for-github/issues/477)) ([5af6821](https://github.com/grafana/wait-for-github/commit/5af68210810ddfa3fbb2c83f590cabf04543b39a))
+* **deps:** update grafana/shared-workflows/ action to ([#478](https://github.com/grafana/wait-for-github/issues/478)) ([831a588](https://github.com/grafana/wait-for-github/commit/831a5881ef1d1e7d607e8e48701a900a21e5b60e))
+
 ## [1.4.0](https://github.com/grafana/wait-for-github/compare/v1.3.0...v1.4.0) (2026-02-12)
 
 
