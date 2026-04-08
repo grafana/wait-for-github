@@ -69,6 +69,10 @@ type RerunFailedWorkflows interface {
 	RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, bool, error)
 }
 
+type MergePR interface {
+	MergePR(ctx context.Context, owner, repo string, pr int, sha string) error
+}
+
 type CheckCIStatus interface {
 	CheckOverallCIStatus
 	CheckCIStatusForChecks
@@ -418,6 +422,25 @@ func (c GHClient) GetPRHeadSHA(ctx context.Context, owner, repo string, prNumber
 	}
 
 	return pr.GetHead().GetSHA(), nil
+}
+
+func (c GHClient) MergePR(ctx context.Context, owner, repo string, prNumber int, sha string) error {
+	result, resp, err := c.client.PullRequests.Merge(ctx, owner, repo, prNumber, "", &github.PullRequestOptions{
+		SHA: sha,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to merge PR: %w", err)
+	}
+
+	if respErr := c.handleResponseError(resp, "MergePullRequest", owner, repo); respErr != nil {
+		return respErr
+	}
+
+	if !result.GetMerged() {
+		return fmt.Errorf("PR was not merged: %s", result.GetMessage())
+	}
+
+	return nil
 }
 
 func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref string) (*StatusCheckRollup, []RollupContextNode, error) {

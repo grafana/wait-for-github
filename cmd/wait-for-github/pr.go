@@ -51,6 +51,7 @@ type prConfig struct {
 	commitInfoFile string
 	excludes       []string
 	actionRetries  int
+	autoMerge      bool
 	writer         fileWriter
 }
 
@@ -124,6 +125,7 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 		commitInfoFile: cmd.String("commit-info-file"),
 		excludes:       cmd.StringSlice("exclude"),
 		actionRetries:  int(cmd.Int("action-retries")),
+		autoMerge:      cmd.Bool("auto-merge"),
 		writer:         osFileWriter{},
 	}, nil
 }
@@ -140,6 +142,7 @@ type checkMergedAndOverallCI interface {
 	github.GetPRHeadSHA
 	github.CheckOverallCIStatus
 	github.RerunFailedWorkflows
+	github.MergePR
 }
 
 type prCheck struct {
@@ -205,6 +208,19 @@ func (pr *prCheck) Check(ctx context.Context) error {
 		return cli.Exit("CI failed", 1)
 	}
 
+	if pr.autoMerge && status == github.CIStatusPassed {
+		pr.logger.InfoContext(ctx, "CI passed and auto-merge is enabled, merging PR")
+		// Pass sha to prevent merging a different commit than the one CI ran on.
+		// Merge failures (conflicts, branch protection) are retried on each poll;
+		// the global timeout bounds how long we wait.
+		if err := pr.githubClient.MergePR(ctx, pr.owner, pr.repo, pr.pr, sha); err != nil {
+			pr.logger.WarnContext(ctx, "failed to merge PR, will retry on next poll", "error", err)
+		} else {
+			pr.logger.InfoContext(ctx, "PR merge requested, waiting for GitHub to confirm")
+		}
+		return nil
+	}
+
 	pr.logger.InfoContext(ctx, "PR is not closed yet")
 	return nil
 }
@@ -248,6 +264,13 @@ func prCommand(cfg *config) *cli.Command {
 				Usage: "Number of times to retry failed GitHub Actions before failing. Set to 0 to disable retries.",
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("GITHUB_ACTION_RETRIES"),
+				),
+			},
+			&cli.BoolFlag{
+				Name:  "auto-merge",
+				Usage: "Automatically merge the PR when CI passes",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_AUTO_MERGE"),
 				),
 			},
 		},
