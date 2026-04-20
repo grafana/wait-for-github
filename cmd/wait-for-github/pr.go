@@ -118,12 +118,22 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 	}
 	logger.InfoContext(ctx, "waiting for PR to be merged/closed", "owner", owner, "repo", repo, "pr", n)
 
+	// Filter out empty strings from excludes. When GITHUB_CI_EXCLUDE is set to
+	// an empty string, urfave/cli splits it into a slice containing one empty
+	// string. Remove these so that an empty env var is treated the same as unset.
+	var excludes []string
+	for _, e := range cmd.StringSlice("exclude") {
+		if e != "" {
+			excludes = append(excludes, e)
+		}
+	}
+
 	return prConfig{
 		owner:          owner,
 		repo:           repo,
 		pr:             n,
 		commitInfoFile: cmd.String("commit-info-file"),
-		excludes:       cmd.StringSlice("exclude"),
+		excludes:       excludes,
 		actionRetries:  int(cmd.Int("action-retries")),
 		autoMerge:      cmd.Bool("auto-merge"),
 		writer:         osFileWriter{},
