@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.1](https://github.com/grafana/wait-for-github/compare/v1.5.0...v1.5.1) (2026-04-20)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module golang.org/x/term to v0.42.0 ([#503](https://github.com/grafana/wait-for-github/issues/503)) ([c0055e6](https://github.com/grafana/wait-for-github/commit/c0055e6a23f7be6a1b431a3caa2bf329fb6635fb))
+* **deps:** update module golang.org/x/text to v0.36.0 ([#504](https://github.com/grafana/wait-for-github/issues/504)) ([98fba4d](https://github.com/grafana/wait-for-github/commit/98fba4df83fc3699813ab517178d9aa1541300a1))
+* handle error-state status contexts in --exclude flag ([#483](https://github.com/grafana/wait-for-github/issues/483)) ([2a43f05](https://github.com/grafana/wait-for-github/commit/2a43f057c2170ec11a8b86b1fc8256b0789f5c0f))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update github/codeql-action action to v4.35.2 ([#507](https://github.com/grafana/wait-for-github/issues/507)) ([e1aa8b8](https://github.com/grafana/wait-for-github/commit/e1aa8b8c75c240f6960a10da1eee344938015137))
+* **deps:** update googleapis/release-please-action action to v4.4.1 ([#506](https://github.com/grafana/wait-for-github/issues/506)) ([2ee6b22](https://github.com/grafana/wait-for-github/commit/2ee6b229a19888f8e94297db65943b67398bb0a5))
+
 ## [1.5.0](https://github.com/grafana/wait-for-github/compare/v1.4.0...v1.5.0) (2026-04-08)
 
 
