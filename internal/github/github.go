@@ -324,6 +324,14 @@ func (c GHClient) handleResponseError(resp *github.Response, operation, owner, r
 	return nil
 }
 
+// cachingRetryableTransport returns an HTTP transport that retries transient
+// network errors and 5xx responses, and caches responses in memory.
+//
+// It does not handle GitHub rate-limit responses (HTTP 403/429 with
+// X-RateLimit-* or Retry-After headers) due to the suggested wait times there
+// (minutes and hours).
+//
+// See internal/utils/utils.go for the rate-limit backoffs.
 func cachingRetryableTransport(logger *slog.Logger) http.RoundTripper {
 	retryableClient := retryablehttp.NewClient()
 	retryableClient.Logger = logger

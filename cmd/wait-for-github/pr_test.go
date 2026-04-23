@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/fs"
 	"testing"
+	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/stretchr/testify/require"
@@ -377,6 +378,49 @@ func TestWriteCommitInfoFileError(t *testing.T) {
 
 	err := prCheck.Check(context.Background())
 	require.Error(t, err)
+}
+
+// rateLimitThenMergedClient embeds fakeGithubClientPRCheck but overrides
+// IsPRMergedOrClosed to return a GitHubRateLimitError on the first call and a
+// merged PR on the second, exercising the rate-limit retry path end-to-end.
+type rateLimitThenMergedClient struct {
+	fakeGithubClientPRCheck
+	calls int
+}
+
+func (c *rateLimitThenMergedClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
+	c.calls++
+	if c.calls == 1 {
+		return "", false, 0, &github.GitHubRateLimitError{
+			Operation: "GetPullRequest",
+			ResetTime: time.Now().Add(50 * time.Millisecond),
+		}
+	}
+	return "abc123", false, 1234567890, nil
+}
+
+// TestPRCheckRateLimitRetry verifies that checkPRMerged does not exit with a
+// rate-limit error. It should wait until ResetTime and retry, ultimately
+// returning exit code 0 when the PR is found to be merged.
+func TestPRCheckRateLimitRetry(t *testing.T) {
+	t.Parallel()
+
+	client := &rateLimitThenMergedClient{}
+	cfg := &config{
+		recheckInterval: 10 * time.Millisecond,
+		logger:          testLogger,
+	}
+	prConf := &prConfig{owner: "owner", repo: "repo", pr: 1}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := checkPRMerged(ctx, client, cfg, prConf)
+
+	var exitErr cli.ExitCoder
+	require.ErrorAs(t, err, &exitErr)
+	require.Equal(t, 0, exitErr.ExitCode(), "expected exit code 0 (PR merged), not a rate limit error")
+	require.Equal(t, 2, client.calls, "expected exactly two calls: one rate-limited, one successful")
 }
 
 func TestParsePRArguments(t *testing.T) {
