@@ -92,7 +92,7 @@ func TestNewGithubClientWithAppAuthentication(t *testing.T) {
 		InstallationID: 123,
 		AppID:          456,
 		// generate this with: openssl genrsa 32 2>/dev/null | awk 1 ORS='\\n'
-		PrivateKey: []byte("-----BEGIN RSA PRIVATE KEY-----\nMC0CAQACBQD7J5Q9AgMBAAECBB6C8NkCAwD+JwIDAPz7AgMA1xcCAkoZAgMAwE8=\n-----END RSA PRIVATE KEY-----"),
+		PrivateKey: []byte("-----BEGIN RSA PRIVATE KEY-----\nMC0CAQACBQD7J5Q9AgMBAAECBB6C8NkCAwD+JwIDAPz7AgMA1xcCAkoZAgMAwE8=\n-----END RSA PRIVATE KEY-----"), // trufflehog:ignore
 	}
 	pendingRecheckTime := 1 * time.Second
 
