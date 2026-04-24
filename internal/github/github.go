@@ -28,7 +28,7 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/fatih/color"
-	"github.com/google/go-github/v84/github"
+	"github.com/google/go-github/v85/github"
 	"github.com/grafana/wait-for-github/internal/logging"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
