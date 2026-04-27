@@ -70,7 +70,7 @@ type RerunFailedWorkflows interface {
 }
 
 type MergePR interface {
-	MergePR(ctx context.Context, owner, repo string, pr int, sha string) error
+	MergePR(ctx context.Context, owner, repo string, pr int, sha, mergeMethod string) error
 }
 
 type CheckCIStatus interface {
@@ -424,11 +424,31 @@ func (c GHClient) GetPRHeadSHA(ctx context.Context, owner, repo string, prNumber
 	return pr.GetHead().GetSHA(), nil
 }
 
-func (c GHClient) MergePR(ctx context.Context, owner, repo string, prNumber int, sha string) error {
+func (c GHClient) MergePR(ctx context.Context, owner, repo string, prNumber int, sha, mergeMethod string) error {
 	result, resp, err := c.client.PullRequests.Merge(ctx, owner, repo, prNumber, "", &github.PullRequestOptions{
-		SHA: sha,
+		SHA:         sha,
+		MergeMethod: mergeMethod,
 	})
 	if err != nil {
+		var ghErr *github.ErrorResponse
+		if errors.As(err, &ghErr) {
+			attrs := []any{
+				"sha", sha,
+				"merge_method", mergeMethod,
+				"status", ghErr.Response.StatusCode,
+				"message", ghErr.Message,
+				"documentation_url", ghErr.DocumentationURL,
+			}
+			for i, e := range ghErr.Errors {
+				attrs = append(attrs,
+					fmt.Sprintf("errors[%d].resource", i), e.Resource,
+					fmt.Sprintf("errors[%d].field", i), e.Field,
+					fmt.Sprintf("errors[%d].code", i), e.Code,
+					fmt.Sprintf("errors[%d].message", i), e.Message,
+				)
+			}
+			c.logger.ErrorContext(ctx, "merge PR API error", attrs...)
+		}
 		return fmt.Errorf("failed to merge PR: %w", err)
 	}
 

@@ -48,11 +48,12 @@ type prConfig struct {
 	repo  string
 	pr    int
 
-	commitInfoFile string
-	excludes       []string
-	actionRetries  int
-	autoMerge      bool
-	writer         fileWriter
+	commitInfoFile  string
+	excludes        []string
+	actionRetries   int
+	autoMerge       bool
+	autoMergeMethod string
+	writer          fileWriter
 }
 
 var (
@@ -129,14 +130,15 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 	}
 
 	return prConfig{
-		owner:          owner,
-		repo:           repo,
-		pr:             n,
-		commitInfoFile: cmd.String("commit-info-file"),
-		excludes:       excludes,
-		actionRetries:  int(cmd.Int("action-retries")),
-		autoMerge:      cmd.Bool("auto-merge"),
-		writer:         osFileWriter{},
+		owner:           owner,
+		repo:            repo,
+		pr:              n,
+		commitInfoFile:  cmd.String("commit-info-file"),
+		excludes:        excludes,
+		actionRetries:   int(cmd.Int("action-retries")),
+		autoMerge:       cmd.Bool("auto-merge"),
+		autoMergeMethod: cmd.String("auto-merge-method"),
+		writer:          osFileWriter{},
 	}, nil
 }
 
@@ -219,11 +221,11 @@ func (pr *prCheck) Check(ctx context.Context) error {
 	}
 
 	if pr.autoMerge && status == github.CIStatusPassed {
-		pr.logger.InfoContext(ctx, "CI passed and auto-merge is enabled, merging PR")
+		pr.logger.InfoContext(ctx, "CI passed and auto-merge is enabled, merging PR", "method", pr.autoMergeMethod)
 		// Pass sha to prevent merging a different commit than the one CI ran on.
 		// Merge failures (conflicts, branch protection) are retried on each poll;
 		// the global timeout bounds how long we wait.
-		if err := pr.githubClient.MergePR(ctx, pr.owner, pr.repo, pr.pr, sha); err != nil {
+		if err := pr.githubClient.MergePR(ctx, pr.owner, pr.repo, pr.pr, sha, pr.autoMergeMethod); err != nil {
 			pr.logger.WarnContext(ctx, "failed to merge PR, will retry on next poll", "error", err)
 		} else {
 			pr.logger.InfoContext(ctx, "PR merge requested, waiting for GitHub to confirm")
@@ -282,6 +284,22 @@ func prCommand(cfg *config) *cli.Command {
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("GITHUB_AUTO_MERGE"),
 				),
+			},
+			&cli.StringFlag{
+				Name:  "auto-merge-method",
+				Usage: "Merge method to use when --auto-merge is enabled (merge, squash, rebase). Defaults to merge.",
+				Value: "merge",
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_AUTO_MERGE_METHOD"),
+				),
+				Validator: func(s string) error {
+					switch s {
+					case "merge", "squash", "rebase":
+						return nil
+					default:
+						return fmt.Errorf("invalid merge method %q: must be one of merge, squash, rebase", s)
+					}
+				},
 			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
