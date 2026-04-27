@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.0](https://github.com/grafana/wait-for-github/compare/v1.5.1...v1.6.0) (2026-04-27)
+
+
+### 🎉 Features
+
+* **pr:** add --auto-merge-method to choose merge method ([#514](https://github.com/grafana/wait-for-github/issues/514)) ([a908827](https://github.com/grafana/wait-for-github/commit/a908827615404298c26731426cfe6e60b1476a7e))
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v84 to v85 ([#510](https://github.com/grafana/wait-for-github/issues/510)) ([79ebbe0](https://github.com/grafana/wait-for-github/commit/79ebbe071350e9df59e4fa88ebcb661847e6c10f))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update googleapis/release-please-action action to v5 ([#513](https://github.com/grafana/wait-for-github/issues/513)) ([907b623](https://github.com/grafana/wait-for-github/commit/907b623890f0f8534f9f2db5305194e9f8f1f60a))
+* mark test private-key as such ([#511](https://github.com/grafana/wait-for-github/issues/511)) ([f61d57c](https://github.com/grafana/wait-for-github/commit/f61d57c8c4eb4336f85c856bac3ef3201b657214))
+
 ## [1.5.1](https://github.com/grafana/wait-for-github/compare/v1.5.0...v1.5.1) (2026-04-20)
 
 
