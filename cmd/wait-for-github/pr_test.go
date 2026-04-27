@@ -45,8 +45,9 @@ type fakeGithubClientPRCheck struct {
 	RerunCount        int
 	HasRunsInProgress bool
 	RerunCalledCount  int
-	MergeCalledCount   int
-	MergeCalledWithSHA string
+	MergeCalledCount      int
+	MergeCalledWithSHA    string
+	MergeCalledWithMethod string
 }
 
 func (fg *fakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
@@ -69,9 +70,10 @@ func (fg *fakeGithubClientPRCheck) RerunFailedWorkflowsForCommit(ctx context.Con
 	return fg.RerunCount, fg.HasRunsInProgress, fg.rerunFailedWorkflowsError
 }
 
-func (fg *fakeGithubClientPRCheck) MergePR(ctx context.Context, owner, repo string, pr int, sha string) error {
+func (fg *fakeGithubClientPRCheck) MergePR(ctx context.Context, owner, repo string, pr int, sha, mergeMethod string) error {
 	fg.MergeCalledCount++
 	fg.MergeCalledWithSHA = sha
+	fg.MergeCalledWithMethod = mergeMethod
 	return fg.mergePRError
 }
 
@@ -79,13 +81,15 @@ func TestPRCheck(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name             string
-		fakeClient       fakeGithubClientPRCheck
-		actionRetries    int
+		name              string
+		fakeClient        fakeGithubClientPRCheck
+		actionRetries     int
 		autoMerge         bool
+		autoMergeMethod   string
 		expectedExitCode  *int
 		expectMergeCalled bool
 		expectMergeSHA    string
+		expectMergeMethod string
 	}{
 		{
 			name: "PR is merged",
@@ -162,15 +166,41 @@ func TestPRCheck(t *testing.T) {
 			},
 		},
 		{
-			name: "CI passed with auto-merge, merge succeeds",
+			name: "CI passed with auto-merge squash, merge succeeds",
 			fakeClient: fakeGithubClientPRCheck{
 				HeadSHA:  "abc123",
 				CIStatus: github.CIStatusPassed,
 			},
 			autoMerge:         true,
+			autoMergeMethod:   "squash",
 			expectMergeCalled: true,
 			expectMergeSHA:    "abc123",
+			expectMergeMethod: "squash",
 			// No exit code - continues polling to detect merge
+		},
+		{
+			name: "CI passed with auto-merge rebase, merge succeeds",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:  "abc123",
+				CIStatus: github.CIStatusPassed,
+			},
+			autoMerge:         true,
+			autoMergeMethod:   "rebase",
+			expectMergeCalled: true,
+			expectMergeSHA:    "abc123",
+			expectMergeMethod: "rebase",
+		},
+		{
+			name: "CI passed with auto-merge, default method",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:  "abc123",
+				CIStatus: github.CIStatusPassed,
+			},
+			autoMerge:         true,
+			autoMergeMethod:   "merge",
+			expectMergeCalled: true,
+			expectMergeSHA:    "abc123",
+			expectMergeMethod: "merge",
 		},
 		{
 			name: "CI passed with auto-merge, merge fails",
@@ -180,8 +210,10 @@ func TestPRCheck(t *testing.T) {
 				mergePRError: fmt.Errorf("merge failed"),
 			},
 			autoMerge:         true,
+			autoMergeMethod:   "squash",
 			expectMergeCalled: true,
 			expectMergeSHA:    "abc123",
+			expectMergeMethod: "squash",
 			// No exit code - continues polling and will retry
 		},
 		{
@@ -189,7 +221,8 @@ func TestPRCheck(t *testing.T) {
 			fakeClient: fakeGithubClientPRCheck{
 				CIStatus: github.CIStatusPending,
 			},
-			autoMerge: true,
+			autoMerge:       true,
+			autoMergeMethod: "squash",
 			// No exit code, no merge - waiting for CI to finish
 		},
 		{
@@ -197,7 +230,6 @@ func TestPRCheck(t *testing.T) {
 			fakeClient: fakeGithubClientPRCheck{
 				CIStatus: github.CIStatusPassed,
 			},
-			autoMerge: false,
 			// No exit code, no merge
 		},
 		{
@@ -205,7 +237,8 @@ func TestPRCheck(t *testing.T) {
 			fakeClient: fakeGithubClientPRCheck{
 				CIStatus: github.CIStatusUnknown,
 			},
-			autoMerge: true,
+			autoMerge:       true,
+			autoMergeMethod: "merge",
 			// No exit code, no merge — only CIStatusPassed triggers auto-merge
 		},
 	}
@@ -222,11 +255,12 @@ func TestPRCheck(t *testing.T) {
 			cancel()
 
 			prConfig := prConfig{
-				owner:         "owner",
-				repo:          "repo",
-				pr:            1,
-				actionRetries: tt.actionRetries,
-				autoMerge:     tt.autoMerge,
+				owner:           "owner",
+				repo:            "repo",
+				pr:              1,
+				actionRetries:   tt.actionRetries,
+				autoMerge:       tt.autoMerge,
+				autoMergeMethod: tt.autoMergeMethod,
 			}
 
 			err := checkPRMerged(ctx, fakePRStatusChecker, cfg, &prConfig)
@@ -242,6 +276,9 @@ func TestPRCheck(t *testing.T) {
 				require.Greater(t, fakePRStatusChecker.MergeCalledCount, 0, "expected MergePR to be called")
 				if tt.expectMergeSHA != "" {
 					require.Equal(t, tt.expectMergeSHA, fakePRStatusChecker.MergeCalledWithSHA, "expected MergePR to be called with head SHA")
+				}
+				if tt.expectMergeMethod != "" {
+					require.Equal(t, tt.expectMergeMethod, fakePRStatusChecker.MergeCalledWithMethod, "expected MergePR to be called with merge method")
 				}
 			} else {
 				require.Equal(t, 0, fakePRStatusChecker.MergeCalledCount, "expected MergePR not to be called")
