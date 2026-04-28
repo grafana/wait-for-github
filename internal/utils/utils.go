@@ -18,6 +18,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -77,16 +78,40 @@ func RunUntilCancelledOrTimeout(ctx context.Context, logger *slog.Logger, check 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT)
 
+	rateLimited := false
+
 	for {
 		err := check.Check(ctx)
 		if err != nil {
-			return err
+			// If this is a rate limiting error, we should consider the
+			// RetryAfter and x-ratelimit-reset headers where present. They
+			// should act as minimum wait time unless interval is already
+			// larger:
+			rle := &github.GitHubRateLimitError{}
+			arle := &github.GitHubAbuseRateLimitError{}
+			if errors.As(err, &rle) {
+				newWait := max(interval, time.Until(rle.ResetTime))
+				ticker.Reset(newWait)
+				logger.InfoContext(ctx, "check was rate limited", "type", "rate-limit", "wait", newWait.String())
+				rateLimited = true
+			} else if errors.As(err, &arle) {
+				newWait := max(interval, arle.RetryAfter)
+				ticker.Reset(newWait)
+				logger.InfoContext(ctx, "check was rate limited", "type", "abuse-rate-limit", "wait", newWait.String())
+				rateLimited = true
+			} else {
+				return err
+			}
 		}
 
 		logger.InfoContext(ctx, "rechecking", "interval", interval)
 
 		select {
 		case <-ticker.C:
+			if rateLimited {
+				ticker.Reset(interval)
+				rateLimited = false
+			}
 		case <-ctx.Done():
 			logger.InfoContext(ctx, "timeout reached, exiting")
 			return cli.Exit("Timeout reached", 1)
