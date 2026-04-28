@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/grafana/wait-for-github/compare/v1.6.0...v1.6.1) (2026-04-28)
+
+
+### 🐛 Bug Fixes
+
+* handle rate-limiting more gracefully ([#509](https://github.com/grafana/wait-for-github/issues/509)) ([85bb9cf](https://github.com/grafana/wait-for-github/commit/85bb9cf3156ce2d43f9791fbf81dcc13db3145a4))
+
 ## [1.6.0](https://github.com/grafana/wait-for-github/compare/v1.5.1...v1.6.0) (2026-04-27)
 
 
