@@ -196,10 +196,10 @@ func TestResponsesAreCached(t *testing.T) {
 	epoch := time.Unix(0, 0)
 
 	pr := &github.PullRequest{
-		MergeCommitSHA: github.String("abc123"),
+		MergeCommitSHA: github.Ptr("abc123"),
 		MergedAt:       &github.Timestamp{Time: epoch},
-		Merged:         github.Bool(true),
-		State:          github.String("closed"),
+		Merged:         github.Ptr(true),
+		State:          github.Ptr("closed"),
 	}
 	now := time.Now().Format(http.TimeFormat)
 
@@ -305,11 +305,11 @@ func TestIsPRMergedOrClosed_Success(t *testing.T) {
 		mock.WithRequestMatch(
 			mock.GetReposPullsByOwnerByRepoByPullNumber,
 			github.PullRequest{
-				Number:         github.Int(1),
-				State:          github.String("closed"),
-				Merged:         github.Bool(true),
+				Number:         github.Ptr(1),
+				State:          github.Ptr("closed"),
+				Merged:         github.Ptr(true),
 				MergedAt:       &github.Timestamp{Time: time.Now()},
-				MergeCommitSHA: github.String("abcdef12345"),
+				MergeCommitSHA: github.Ptr("abcdef12345"),
 			},
 		),
 	)
@@ -918,9 +918,9 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -933,9 +933,9 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionFailure),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionFailure),
 					},
 				},
 			},
@@ -948,8 +948,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:   github.String("check1"),
-						Status: github.String(RunStatusQueued),
+						Name:   github.Ptr("check1"),
+						Status: github.Ptr(RunStatusQueued),
 					},
 				},
 			},
@@ -962,8 +962,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:   github.String("check1"),
-						Status: github.String(RunStatusInProgress),
+						Name:   github.Ptr("check1"),
+						Status: github.Ptr(RunStatusInProgress),
 					},
 				},
 			},
@@ -976,9 +976,9 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Conclusion: github.String(RunConclusionSkipped),
-						Status:     github.String(RunStatusCompleted),
+						Name:       github.Ptr("check1"),
+						Conclusion: github.Ptr(RunConclusionSkipped),
+						Status:     github.Ptr(RunStatusCompleted),
 					},
 				},
 			},
@@ -991,8 +991,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String(StatusStateSuccess),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
@@ -1005,12 +1005,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("what"),
-						State:   github.String("failed"),
+						Context: github.Ptr("what"),
+						State:   github.Ptr("failed"),
 					},
 					{
-						Context: github.String("check1"),
-						State:   github.String(StatusStateSuccess),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
@@ -1023,14 +1023,14 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("what"),
-						State:   github.String("failed"),
+						Context: github.Ptr("what"),
+						State:   github.Ptr("failed"),
 					},
 				},
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String(StatusStateSuccess),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
@@ -1043,8 +1043,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String(StatusStateFailure),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateFailure),
 					},
 				},
 			},
@@ -1057,8 +1057,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String(StatusStatePending),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStatePending),
 					},
 				},
 			},
@@ -1071,8 +1071,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String(StatusStateError),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateError),
 					},
 				},
 			},
@@ -1085,14 +1085,14 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 					{
-						Name:       github.String("check2"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1105,16 +1105,16 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 				{
 					{
-						Name:       github.String("check2"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1125,14 +1125,14 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 					{
-						Name:       github.String("check2"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionFailure),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionFailure),
 					},
 				},
 			},
@@ -1145,16 +1145,16 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 				{
 					{
-						Name:       github.String("check2"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionFailure),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionFailure),
 					},
 				},
 			},
@@ -1167,13 +1167,13 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 					{
-						Name:   github.String("check2"),
-						Status: github.String(RunStatusQueued),
+						Name:   github.Ptr("check2"),
+						Status: github.Ptr(RunStatusQueued),
 					},
 				},
 			},
@@ -1186,30 +1186,30 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String(StatusStateSuccess),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 				{
 					{
-						Context: github.String("check2"),
-						State:   github.String(StatusStateSuccess),
+						Context: github.Ptr("check2"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check3"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check3"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 				{
 					{
-						Name:       github.String("check4"),
-						Status:     github.String(RunStatusCompleted),
-						Conclusion: github.String(RunConclusionSuccess),
+						Name:       github.Ptr("check4"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1269,7 +1269,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 							}
 							pages[i] = mock.MustMarshal(
 								github.ListCheckRunsResults{
-									Total:     github.Int(len(runs[i])),
+									Total:     github.Ptr(len(runs[i])),
 									CheckRuns: runs[i],
 								},
 							)
@@ -1317,7 +1317,7 @@ func TestGetCIStatusForChecks_ErrorListStatuses(t *testing.T) {
 		mock.WithRequestMatch(
 			mock.GetReposCommitsCheckRunsByOwnerByRepoByRef,
 			github.ListCheckRunsResults{
-				Total:     github.Int(0),
+				Total:     github.Ptr(0),
 				CheckRuns: []*github.CheckRun{},
 			},
 		),
@@ -1341,7 +1341,7 @@ func TestGetPRHeadSHA(t *testing.T) {
 			mock.GetReposPullsByOwnerByRepoByPullNumber,
 			github.PullRequest{
 				Head: &github.PullRequestBranch{
-					SHA: github.String("abcdef12345"),
+					SHA: github.Ptr("abcdef12345"),
 				},
 			},
 		),
@@ -1378,7 +1378,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reruns failed workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
 			},
 			expectedRerunCount:  1,
 			expectedRerunCalled: 1,
@@ -1386,7 +1386,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reruns timed_out workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionTimedOut)},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionTimedOut)},
 			},
 			expectedRerunCount:  1,
 			expectedRerunCalled: 1,
@@ -1394,7 +1394,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "does not rerun successful workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionSuccess)},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionSuccess)},
 			},
 			expectedRerunCount:  0,
 			expectedRerunCalled: 0,
@@ -1402,7 +1402,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "does not rerun cancelled workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionCancelled)},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionCancelled)},
 			},
 			expectedRerunCount:  0,
 			expectedRerunCalled: 0,
@@ -1410,7 +1410,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "does not rerun skipped workflow",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionSkipped)},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionSkipped)},
 			},
 			expectedRerunCount:  0,
 			expectedRerunCalled: 0,
@@ -1418,9 +1418,9 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reruns multiple failed workflows",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
-				{ID: github.Int64(2), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionTimedOut)},
-				{ID: github.Int64(3), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionSuccess)},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+				{ID: github.Ptr[int64](2), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionTimedOut)},
+				{ID: github.Ptr[int64](3), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionSuccess)},
 			},
 			expectedRerunCount:  2,
 			expectedRerunCalled: 2,
@@ -1434,7 +1434,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "rerun API failure returns error",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
 			},
 			rerunShouldFail:     true,
 			expectedRerunCount:  0,
@@ -1444,7 +1444,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "reports in-progress runs",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusInProgress), Conclusion: github.String("")},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusInProgress), Conclusion: github.Ptr("")},
 			},
 			expectedRerunCount:        0,
 			expectedHasIncompleteRuns: true,
@@ -1453,8 +1453,8 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 		{
 			name: "in-progress run alongside failed run",
 			workflowRuns: []*github.WorkflowRun{
-				{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
-				{ID: github.Int64(2), Status: github.String(RunStatusInProgress), Conclusion: github.String("")},
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+				{ID: github.Ptr[int64](2), Status: github.Ptr(RunStatusInProgress), Conclusion: github.Ptr("")},
 			},
 			expectedRerunCount:        1,
 			expectedHasIncompleteRuns: true,
@@ -1473,7 +1473,7 @@ func TestRerunFailedWorkflowsForCommit(t *testing.T) {
 				mock.WithRequestMatch(
 					mock.GetReposActionsRunsByOwnerByRepo,
 					github.WorkflowRuns{
-						TotalCount:   github.Int(len(tt.workflowRuns)),
+						TotalCount:   github.Ptr(len(tt.workflowRuns)),
 						WorkflowRuns: tt.workflowRuns,
 					},
 				),
@@ -1534,15 +1534,15 @@ func TestRerunFailedWorkflowsForCommit_DeduplicatesRuns(t *testing.T) {
 
 	// Simulate the same run appearing twice (edge case)
 	workflowRuns := []*github.WorkflowRun{
-		{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)},
-		{ID: github.Int64(1), Status: github.String(RunStatusCompleted), Conclusion: github.String(RunConclusionFailure)}, // duplicate
+		{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+		{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)}, // duplicate
 	}
 
 	mockedHTTPClient := mock.NewMockedHTTPClient(
 		mock.WithRequestMatch(
 			mock.GetReposActionsRunsByOwnerByRepo,
 			github.WorkflowRuns{
-				TotalCount:   github.Int(len(workflowRuns)),
+				TotalCount:   github.Ptr(len(workflowRuns)),
 				WorkflowRuns: workflowRuns,
 			},
 		),
