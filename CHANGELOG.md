@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.6.1](https://github.com/grafana/wait-for-github/compare/v1.6.0...v1.6.1) (2026-05-08)
+
+
+### 🐛 Bug Fixes
+
+* handle rate-limiting more gracefully ([#509](https://github.com/grafana/wait-for-github/issues/509)) ([85bb9cf](https://github.com/grafana/wait-for-github/commit/85bb9cf3156ce2d43f9791fbf81dcc13db3145a4))
+* pin golangci-lint and replace deprecated pointer helpers ([#517](https://github.com/grafana/wait-for-github/issues/517)) ([2c086a7](https://github.com/grafana/wait-for-github/commit/2c086a7c2f6ed7521ef8403a99f3028fb23db451))
+
+
+### 🏗️ Build System
+
+* bump Go to 1.26.2 and Alpine to 3.23 ([#518](https://github.com/grafana/wait-for-github/issues/518)) ([b880112](https://github.com/grafana/wait-for-github/commit/b88011249fcd3ccf2ff94e14e79e94c303d2ca64))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update github/codeql-action action to v4.35.3 ([#516](https://github.com/grafana/wait-for-github/issues/516)) ([ffdc68c](https://github.com/grafana/wait-for-github/commit/ffdc68caa1fd5f6eaa13e7990eab77b250d0fd7f))
+* **deps:** update grafana/shared-workflows/lint-pr-title action to v1.2.2 ([#519](https://github.com/grafana/wait-for-github/issues/519)) ([fe1e495](https://github.com/grafana/wait-for-github/commit/fe1e495c39dd516e599024b9b8884212aa5f6e79))
+
 ## [1.6.0](https://github.com/grafana/wait-for-github/compare/v1.5.1...v1.6.0) (2026-04-27)
 
 
