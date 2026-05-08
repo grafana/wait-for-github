@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:1.25.5-alpine3.21@sha256:b4dbd292a0852331c89dfd64e84d16811f3e3aae4c73c13d026c4d200715aff6 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.26.2-alpine3.23@sha256:f85330846cde1e57ca9ec309382da3b8e6ae3ab943d2739500e08c86393a21b1 AS builder
 
 # Dependencies required to run the race detector
 RUN \
