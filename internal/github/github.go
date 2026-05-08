@@ -613,9 +613,9 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 	}
 
 	opt := &github.ListCheckRunsOptions{
-		CheckName:   github.String(check),
+		CheckName:   github.Ptr(check),
 		ListOptions: listOptions,
-		Filter:      github.String("latest"),
+		Filter:      github.Ptr("latest"),
 	}
 
 	var checkRuns []*github.CheckRun

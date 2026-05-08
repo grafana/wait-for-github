@@ -32,7 +32,9 @@ jobs:
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9.2.0
+        with:
+          version: v2.12.2
 
       - name: lint PR title / commit message
         if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
-        uses: grafana/shared-workflows/actions/lint-pr-title@5f4c48c03125ef179c36a821d5b801fc876e672c # lint-pr-title/v1.2.1
+        uses: grafana/shared-workflows/actions/lint-pr-title@0239db2665246f3b078d8d9166e4d8f09c071cae # lint-pr-title/v1.2.2
