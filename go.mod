@@ -5,7 +5,7 @@ go 1.26.2
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.18.0
 	github.com/fatih/color v1.19.0
-	github.com/google/go-github/v85 v85.0.0
+	github.com/google/go-github/v86 v86.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/lmittmann/tint v1.1.3
