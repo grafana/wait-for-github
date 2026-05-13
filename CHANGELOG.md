@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.2](https://github.com/grafana/wait-for-github/compare/v1.6.1...v1.6.2) (2026-05-13)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v85 to v86 ([#522](https://github.com/grafana/wait-for-github/issues/522)) ([1ceae66](https://github.com/grafana/wait-for-github/commit/1ceae669e4d20081ca9fa54cae9cb633b65f40ac))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update golang docker tag to v1.26.3 ([#521](https://github.com/grafana/wait-for-github/issues/521)) ([5708b5a](https://github.com/grafana/wait-for-github/commit/5708b5ae56c222ace1d9ef5686a1b690cb209a56))
+
 ## [1.6.1](https://github.com/grafana/wait-for-github/compare/v1.6.0...v1.6.1) (2026-05-08)
 
 
