@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.3](https://github.com/grafana/wait-for-github/compare/v1.6.2...v1.6.3) (2026-05-13)
+
+
+### 🔧 Miscellaneous Chores
+
+* add toolchain directive to go.mod ([#527](https://github.com/grafana/wait-for-github/issues/527)) ([dcd009a](https://github.com/grafana/wait-for-github/commit/dcd009aa657f0b12736256f77c4a585f6813a33d))
+
 ## [1.6.2](https://github.com/grafana/wait-for-github/compare/v1.6.1...v1.6.2) (2026-05-13)
 
 
