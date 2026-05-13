@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.4](https://github.com/grafana/wait-for-github/compare/v1.6.3...v1.6.4) (2026-05-13)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/urfave/cli/v3 to v3.9.0 ([#526](https://github.com/grafana/wait-for-github/issues/526)) ([4e0dc98](https://github.com/grafana/wait-for-github/commit/4e0dc98133e5ba7d2782ccf0d197357cecc7c7b3))
+
 ## [1.6.3](https://github.com/grafana/wait-for-github/compare/v1.6.2...v1.6.3) (2026-05-13)
 
 
