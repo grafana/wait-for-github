@@ -2,7 +2,7 @@ module github.com/grafana/wait-for-github
 
 go 1.26.2
 
-toolchain go1.26.3
+toolchain go1.26.4
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.18.0
