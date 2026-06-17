@@ -28,7 +28,7 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/fatih/color"
-	"github.com/google/go-github/v86/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/grafana/wait-for-github/internal/logging"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
@@ -348,7 +348,7 @@ func NewGithubClient(ctx context.Context, logger *slog.Logger, authInfo AuthInfo
 	// If a GitHub token is provided, use it to authenticate in preference to App authentication.
 	if authInfo.GithubToken != "" {
 		logger.InfoContext(ctx, "using github token for authentication")
-		return AuthenticateWithToken(ctx, logger, authInfo.GithubToken, pendingRecheckTime), nil
+		return AuthenticateWithToken(ctx, logger, authInfo.GithubToken, pendingRecheckTime)
 	}
 
 	logger.InfoContext(ctx, "using github app for authentication")
@@ -356,14 +356,17 @@ func NewGithubClient(ctx context.Context, logger *slog.Logger, authInfo AuthInfo
 }
 
 // AuthenticateWithToken authenticates with a GitHub token.
-func AuthenticateWithToken(ctx context.Context, logger *slog.Logger, token string, pendingRecheckTime time.Duration) GHClient {
+func AuthenticateWithToken(ctx context.Context, logger *slog.Logger, token string, pendingRecheckTime time.Duration) (GHClient, error) {
 	src := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{Transport: cachingRetryableTransport(logger)})
 	httpClient := oauth2.NewClient(ctx, src)
 
-	restClient := github.NewClient(httpClient)
+	restClient, err := github.NewClient(github.WithHTTPClient(httpClient))
+	if err != nil {
+		return GHClient{}, fmt.Errorf("failed to create REST client: %w", err)
+	}
 	graphQLClient := graphql.NewClient("https://api.github.com/graphql", httpClient)
 
 	return GHClient{
@@ -371,7 +374,7 @@ func AuthenticateWithToken(ctx context.Context, logger *slog.Logger, token strin
 		client:             restClient,
 		graphQLClient:      graphQLClient,
 		pendingRecheckTime: pendingRecheckTime,
-	}
+	}, nil
 }
 
 // AuthenticateWithApp authenticates with a GitHub App
@@ -383,7 +386,10 @@ func AuthenticateWithApp(ctx context.Context, logger *slog.Logger, privateKey []
 
 	httpClient := &http.Client{Transport: itr}
 
-	restClient := github.NewClient(httpClient)
+	restClient, err := github.NewClient(github.WithHTTPClient(httpClient))
+	if err != nil {
+		return GHClient{}, fmt.Errorf("failed to create REST client: %w", err)
+	}
 	graphQLClient := graphql.NewClient("https://api.github.com/graphql", httpClient)
 
 	return GHClient{
