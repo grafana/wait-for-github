@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v86/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
@@ -131,9 +131,14 @@ func newClientFromMock(t *testing.T, mockClient *http.Client, graphQLURL string)
 
 	httpClient := &http.Client{Transport: transport}
 
+	ghc, err := github.NewClient(github.WithHTTPClient(httpClient))
+	if err != nil {
+		require.NoError(t, err)
+	}
+
 	return &GHClient{
 		logger:             testLogger,
-		client:             github.NewClient(httpClient),
+		client:             ghc,
 		graphQLClient:      graphql.NewClient(graphQLURL, httpClient),
 		pendingRecheckTime: 0,
 	}
@@ -289,9 +294,14 @@ func newErrorReturningClient(t *testing.T) *GHClient {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}))
 
+	ghc, err := github.NewClient()
+	if err != nil {
+		require.NoError(t, err)
+	}
+
 	return &GHClient{
 		logger:        testLogger,
-		client:        github.NewClient(nil),
+		client:        ghc,
 		graphQLClient: graphql.NewClient(mockServer.URL, http.DefaultClient),
 	}
 }
