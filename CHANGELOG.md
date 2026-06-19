@@ -1,5 +1,205 @@
 # Changelog
 
+## [1.6.3](https://github.com/grafana/wait-for-github/compare/v1.6.2...v1.6.3) (2026-05-13)
+
+
+### 🔧 Miscellaneous Chores
+
+* add toolchain directive to go.mod ([#527](https://github.com/grafana/wait-for-github/issues/527)) ([dcd009a](https://github.com/grafana/wait-for-github/commit/dcd009aa657f0b12736256f77c4a585f6813a33d))
+
+## [1.6.2](https://github.com/grafana/wait-for-github/compare/v1.6.1...v1.6.2) (2026-05-13)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v85 to v86 ([#522](https://github.com/grafana/wait-for-github/issues/522)) ([1ceae66](https://github.com/grafana/wait-for-github/commit/1ceae669e4d20081ca9fa54cae9cb633b65f40ac))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update golang docker tag to v1.26.3 ([#521](https://github.com/grafana/wait-for-github/issues/521)) ([5708b5a](https://github.com/grafana/wait-for-github/commit/5708b5ae56c222ace1d9ef5686a1b690cb209a56))
+
+## [1.6.1](https://github.com/grafana/wait-for-github/compare/v1.6.0...v1.6.1) (2026-05-08)
+
+
+### 🐛 Bug Fixes
+
+* handle rate-limiting more gracefully ([#509](https://github.com/grafana/wait-for-github/issues/509)) ([85bb9cf](https://github.com/grafana/wait-for-github/commit/85bb9cf3156ce2d43f9791fbf81dcc13db3145a4))
+* pin golangci-lint and replace deprecated pointer helpers ([#517](https://github.com/grafana/wait-for-github/issues/517)) ([2c086a7](https://github.com/grafana/wait-for-github/commit/2c086a7c2f6ed7521ef8403a99f3028fb23db451))
+
+
+### 🏗️ Build System
+
+* bump Go to 1.26.2 and Alpine to 3.23 ([#518](https://github.com/grafana/wait-for-github/issues/518)) ([b880112](https://github.com/grafana/wait-for-github/commit/b88011249fcd3ccf2ff94e14e79e94c303d2ca64))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update github/codeql-action action to v4.35.3 ([#516](https://github.com/grafana/wait-for-github/issues/516)) ([ffdc68c](https://github.com/grafana/wait-for-github/commit/ffdc68caa1fd5f6eaa13e7990eab77b250d0fd7f))
+* **deps:** update grafana/shared-workflows/lint-pr-title action to v1.2.2 ([#519](https://github.com/grafana/wait-for-github/issues/519)) ([fe1e495](https://github.com/grafana/wait-for-github/commit/fe1e495c39dd516e599024b9b8884212aa5f6e79))
+
+## [1.6.0](https://github.com/grafana/wait-for-github/compare/v1.5.1...v1.6.0) (2026-04-27)
+
+
+### 🎉 Features
+
+* **pr:** add --auto-merge-method to choose merge method ([#514](https://github.com/grafana/wait-for-github/issues/514)) ([a908827](https://github.com/grafana/wait-for-github/commit/a908827615404298c26731426cfe6e60b1476a7e))
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v84 to v85 ([#510](https://github.com/grafana/wait-for-github/issues/510)) ([79ebbe0](https://github.com/grafana/wait-for-github/commit/79ebbe071350e9df59e4fa88ebcb661847e6c10f))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update googleapis/release-please-action action to v5 ([#513](https://github.com/grafana/wait-for-github/issues/513)) ([907b623](https://github.com/grafana/wait-for-github/commit/907b623890f0f8534f9f2db5305194e9f8f1f60a))
+* mark test private-key as such ([#511](https://github.com/grafana/wait-for-github/issues/511)) ([f61d57c](https://github.com/grafana/wait-for-github/commit/f61d57c8c4eb4336f85c856bac3ef3201b657214))
+
+## [1.5.1](https://github.com/grafana/wait-for-github/compare/v1.5.0...v1.5.1) (2026-04-20)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module golang.org/x/term to v0.42.0 ([#503](https://github.com/grafana/wait-for-github/issues/503)) ([c0055e6](https://github.com/grafana/wait-for-github/commit/c0055e6a23f7be6a1b431a3caa2bf329fb6635fb))
+* **deps:** update module golang.org/x/text to v0.36.0 ([#504](https://github.com/grafana/wait-for-github/issues/504)) ([98fba4d](https://github.com/grafana/wait-for-github/commit/98fba4df83fc3699813ab517178d9aa1541300a1))
+* handle error-state status contexts in --exclude flag ([#483](https://github.com/grafana/wait-for-github/issues/483)) ([2a43f05](https://github.com/grafana/wait-for-github/commit/2a43f057c2170ec11a8b86b1fc8256b0789f5c0f))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update github/codeql-action action to v4.35.2 ([#507](https://github.com/grafana/wait-for-github/issues/507)) ([e1aa8b8](https://github.com/grafana/wait-for-github/commit/e1aa8b8c75c240f6960a10da1eee344938015137))
+* **deps:** update googleapis/release-please-action action to v4.4.1 ([#506](https://github.com/grafana/wait-for-github/issues/506)) ([2ee6b22](https://github.com/grafana/wait-for-github/commit/2ee6b229a19888f8e94297db65943b67398bb0a5))
+
+## [1.5.0](https://github.com/grafana/wait-for-github/compare/v1.4.0...v1.5.0) (2026-04-08)
+
+
+### 🎉 Features
+
+* **pr:** add --auto-merge flag to merge PR when CI passes ([#501](https://github.com/grafana/wait-for-github/issues/501)) ([aeca03c](https://github.com/grafana/wait-for-github/commit/aeca03c73adc10ba13f6ec8e56c72615fa004b3b))
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update github.com/shurcool/graphql digest to 7ee5256 ([#468](https://github.com/grafana/wait-for-github/issues/468)) ([9292626](https://github.com/grafana/wait-for-github/commit/9292626de29c0495a1ce95f8497d6d0c6e12a71d))
+* **deps:** update module github.com/bradleyfalzon/ghinstallation/v2 to v2.18.0 ([#490](https://github.com/grafana/wait-for-github/issues/490)) ([6620fa2](https://github.com/grafana/wait-for-github/commit/6620fa26c3ef273302f8c6d0a95178e314eb6b38))
+* **deps:** update module github.com/fatih/color to v1.19.0 ([#495](https://github.com/grafana/wait-for-github/issues/495)) ([65a3e8e](https://github.com/grafana/wait-for-github/commit/65a3e8e8ca5a4d9988a379d4171a35f8e9286a81))
+* **deps:** update module github.com/google/go-github/v82 to v84 ([#480](https://github.com/grafana/wait-for-github/issues/480)) ([8ffbca4](https://github.com/grafana/wait-for-github/commit/8ffbca46d0dbe4968c7958d800d2356f1821015b))
+* **deps:** update module github.com/olekukonko/tablewriter to v1.1.4 ([#487](https://github.com/grafana/wait-for-github/issues/487)) ([cd77582](https://github.com/grafana/wait-for-github/commit/cd77582450f1da15b07a1549128d0fc5d4a2427c))
+* **deps:** update module github.com/urfave/cli/v3 to v3.7.0 ([#481](https://github.com/grafana/wait-for-github/issues/481)) ([8cd55af](https://github.com/grafana/wait-for-github/commit/8cd55af1e2d0e984d53a2a8419032829d06a2e78))
+* **deps:** update module github.com/urfave/cli/v3 to v3.8.0 ([#498](https://github.com/grafana/wait-for-github/issues/498)) ([3190f79](https://github.com/grafana/wait-for-github/commit/3190f79607019bd2820bcb41eac035d1052df64a))
+* **deps:** update module golang.org/x/oauth2 to v0.36.0 ([#484](https://github.com/grafana/wait-for-github/issues/484)) ([2a61a03](https://github.com/grafana/wait-for-github/commit/2a61a03e54247158a3681b36bea0a4d01cdd9ba0))
+* **deps:** update module golang.org/x/term to v0.40.0 ([#469](https://github.com/grafana/wait-for-github/issues/469)) ([1c9485a](https://github.com/grafana/wait-for-github/commit/1c9485a71653ab893ecf6d8529744569228b997f))
+* **deps:** update module golang.org/x/term to v0.41.0 ([#488](https://github.com/grafana/wait-for-github/issues/488)) ([3a20546](https://github.com/grafana/wait-for-github/commit/3a205460df1e45c4c704cb3ef61c64bc9da94a5f))
+* **deps:** update module golang.org/x/text to v0.34.0 ([#470](https://github.com/grafana/wait-for-github/issues/470)) ([e545f9f](https://github.com/grafana/wait-for-github/commit/e545f9f23e8fe630a448b0e5456646221cc35e41))
+* **deps:** update module golang.org/x/text to v0.35.0 ([#489](https://github.com/grafana/wait-for-github/issues/489)) ([7b9f631](https://github.com/grafana/wait-for-github/commit/7b9f6317d617d4081be15d9be33b60c200a24900))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/setup-go action to v6.3.0 ([#479](https://github.com/grafana/wait-for-github/issues/479)) ([b6a1ba6](https://github.com/grafana/wait-for-github/commit/b6a1ba65e1a55abff63398894ce78fe8823fef25))
+* **deps:** update actions/setup-go action to v6.4.0 ([#499](https://github.com/grafana/wait-for-github/issues/499)) ([5ad9887](https://github.com/grafana/wait-for-github/commit/5ad98876f9590f3e8f98472e09af3d242ab0f095))
+* **deps:** update github/codeql-action action to v4.32.3 ([#474](https://github.com/grafana/wait-for-github/issues/474)) ([8074025](https://github.com/grafana/wait-for-github/commit/80740256d987552effea07b0c36b4723d29292db))
+* **deps:** update github/codeql-action action to v4.32.4 ([#476](https://github.com/grafana/wait-for-github/issues/476)) ([c652cad](https://github.com/grafana/wait-for-github/commit/c652cad5ae4e8b63291608650040c317deeb67b8))
+* **deps:** update github/codeql-action action to v4.32.5 ([#482](https://github.com/grafana/wait-for-github/issues/482)) ([159d067](https://github.com/grafana/wait-for-github/commit/159d067ba8be135f015dcaddbd55be01d53beb55))
+* **deps:** update github/codeql-action action to v4.32.6 ([#485](https://github.com/grafana/wait-for-github/issues/485)) ([755aaa5](https://github.com/grafana/wait-for-github/commit/755aaa56d547276927dc329b64325dcad5caa00d))
+* **deps:** update github/codeql-action action to v4.33.0 ([#494](https://github.com/grafana/wait-for-github/issues/494)) ([9c2a74d](https://github.com/grafana/wait-for-github/commit/9c2a74d51fdeffed2afd0011c64d73b82b103479))
+* **deps:** update github/codeql-action action to v4.34.1 ([#496](https://github.com/grafana/wait-for-github/issues/496)) ([8e1515a](https://github.com/grafana/wait-for-github/commit/8e1515a5c1617e6ca18f6ddc5cbacfd19e36166b))
+* **deps:** update github/codeql-action action to v4.35.1 ([#500](https://github.com/grafana/wait-for-github/issues/500)) ([ef0f2d1](https://github.com/grafana/wait-for-github/commit/ef0f2d15074d5601f7799cd6e6002647442088fb))
+* **deps:** update grafana/shared-workflows/ action to ([#464](https://github.com/grafana/wait-for-github/issues/464)) ([327ad6e](https://github.com/grafana/wait-for-github/commit/327ad6e9b9163853a93acb5a40d849c3203b3ce6))
+* **deps:** update grafana/shared-workflows/ action to ([#472](https://github.com/grafana/wait-for-github/issues/472)) ([b4541a2](https://github.com/grafana/wait-for-github/commit/b4541a2cff1160dc3f84d84992f2079d42c661b8))
+* **deps:** update grafana/shared-workflows/ action to ([#477](https://github.com/grafana/wait-for-github/issues/477)) ([5af6821](https://github.com/grafana/wait-for-github/commit/5af68210810ddfa3fbb2c83f590cabf04543b39a))
+* **deps:** update grafana/shared-workflows/ action to ([#478](https://github.com/grafana/wait-for-github/issues/478)) ([831a588](https://github.com/grafana/wait-for-github/commit/831a5881ef1d1e7d607e8e48701a900a21e5b60e))
+* **deps:** update grafana/shared-workflows/ action to ([#486](https://github.com/grafana/wait-for-github/issues/486)) ([9e095ff](https://github.com/grafana/wait-for-github/commit/9e095ff1c9504d202be2209d407c38171dee9a99))
+* **deps:** update grafana/shared-workflows/ action to ([#491](https://github.com/grafana/wait-for-github/issues/491)) ([72e2c23](https://github.com/grafana/wait-for-github/commit/72e2c23504be8cdf051e054ac0e86667d5fd6543))
+* **deps:** update grafana/shared-workflows/ action to ([#492](https://github.com/grafana/wait-for-github/issues/492)) ([e384d50](https://github.com/grafana/wait-for-github/commit/e384d509e646fffbd9b95574d66b39364a48ff35))
+* **deps:** update grafana/shared-workflows/ action to ([#493](https://github.com/grafana/wait-for-github/issues/493)) ([1c246ef](https://github.com/grafana/wait-for-github/commit/1c246eff8a7c39da3847a6b15a83444a098fd2e7))
+* **deps:** update grafana/shared-workflows/ action to ([#497](https://github.com/grafana/wait-for-github/issues/497)) ([28ee42f](https://github.com/grafana/wait-for-github/commit/28ee42f3aab2b1687c0ff985290a7fa4aad3689f))
+
+## [1.4.0](https://github.com/grafana/wait-for-github/compare/v1.3.0...v1.4.0) (2026-02-12)
+
+
+### 🎉 Features
+
+* add `--action-retries` option to ci ([47c25da](https://github.com/grafana/wait-for-github/commit/47c25da100c303a022bf236958865a8106c59587))
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v81 to v82 ([6b1d9a9](https://github.com/grafana/wait-for-github/commit/6b1d9a9c0e15c598c592b933a5b173e67fcd9aa4))
+* **deps:** update module github.com/lmittmann/tint to v1.1.3 ([bc15909](https://github.com/grafana/wait-for-github/commit/bc1590959c879476003d54d494450ae7546423af))
+* **deps:** update module golang.org/x/oauth2 to v0.35.0 ([81a4a82](https://github.com/grafana/wait-for-github/commit/81a4a822ce566848a6da5d7428aa714c10ea05ad))
+* don't exit immediately when no concluded workflow runs to retry ([#465](https://github.com/grafana/wait-for-github/issues/465)) ([13eabae](https://github.com/grafana/wait-for-github/commit/13eabae4a23a6040b1936e1458ba2b779672caf0))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/checkout action to v6.0.2 ([0b8d70a](https://github.com/grafana/wait-for-github/commit/0b8d70a2c52ca975412cac842dde3e157b3a9071))
+* **deps:** update github/codeql-action action to v4.31.11 ([39ea2b1](https://github.com/grafana/wait-for-github/commit/39ea2b1e5e8211f8852f1017b2d8c4916ae8f734))
+* **deps:** update github/codeql-action action to v4.32.1 ([0a919f9](https://github.com/grafana/wait-for-github/commit/0a919f930192d843ea92b762fd127c63fc9dadbb))
+* **deps:** update github/codeql-action action to v4.32.2 ([ab9fcec](https://github.com/grafana/wait-for-github/commit/ab9fcec757f17cdb0313d95bb35eebdd42fee306))
+* **deps:** update grafana/shared-workflows/ action to ([a6afa8c](https://github.com/grafana/wait-for-github/commit/a6afa8cd5853c6ecea9c2e15a8bbe8de69e972c7))
+* **deps:** update grafana/shared-workflows/ action to ([065f654](https://github.com/grafana/wait-for-github/commit/065f654be1496d4fd8568a1161a659326afafe80))
+* **deps:** update grafana/shared-workflows/ action to ([ac027a2](https://github.com/grafana/wait-for-github/commit/ac027a2dd471119b6a41907f2992407973f99286))
+* **deps:** update grafana/shared-workflows/ action to ([fd0a456](https://github.com/grafana/wait-for-github/commit/fd0a4564341dc6b7d0086d4c59c4ceeec5414e47))
+
+## [1.3.0](https://github.com/grafana/wait-for-github/compare/v1.2.0...v1.3.0) (2026-01-21)
+
+
+### 🎉 Features
+
+* add "--action-retries" option ([084b69d](https://github.com/grafana/wait-for-github/commit/084b69d033bea74d88c7133bd540f2f627948d4c))
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v77 to v78 ([3aa6e81](https://github.com/grafana/wait-for-github/commit/3aa6e81e061efe1211d9d8800fe43c38025895c5))
+* **deps:** update module github.com/google/go-github/v78 to v79 ([17ca7ea](https://github.com/grafana/wait-for-github/commit/17ca7ea217ff9001bcdff00fda7717c32695aa8b))
+* **deps:** update module github.com/google/go-github/v79 to v80 ([dcf59b1](https://github.com/grafana/wait-for-github/commit/dcf59b15d59f1c3bff38b4286d994edcc415ecb2))
+* **deps:** update module github.com/google/go-github/v80 to v81 ([b862bea](https://github.com/grafana/wait-for-github/commit/b862bea202a631813e55c1aff3ea1a78ce8f527c))
+* **deps:** update module github.com/olekukonko/tablewriter to v1.1.2 ([62a506b](https://github.com/grafana/wait-for-github/commit/62a506b6f50937ec4676b3d6ab8d16f21834f681))
+* **deps:** update module github.com/olekukonko/tablewriter to v1.1.3 ([0bd900e](https://github.com/grafana/wait-for-github/commit/0bd900e92861802bfb9e4a833cfae75c583bde94))
+* **deps:** update module github.com/urfave/cli/v3 to v3.6.1 ([62033cc](https://github.com/grafana/wait-for-github/commit/62033cc9739578ba30cdf843d313589f1c7cd74a))
+* **deps:** update module github.com/urfave/cli/v3 to v3.6.2 ([daeb40f](https://github.com/grafana/wait-for-github/commit/daeb40fc0c3c7eb4b8f3bfe8d5d488c512f510b1))
+* **deps:** update module golang.org/x/oauth2 to v0.34.0 ([34e74e6](https://github.com/grafana/wait-for-github/commit/34e74e68b82b8a5017b6a291011fc4b68bb6e783))
+* **deps:** update module golang.org/x/term to v0.37.0 ([b4db5eb](https://github.com/grafana/wait-for-github/commit/b4db5eb94d7354ea85501f73e2c309daf5795cf0))
+* **deps:** update module golang.org/x/term to v0.39.0 ([ce98ed8](https://github.com/grafana/wait-for-github/commit/ce98ed815a68f141fe7fbd183122029c10e1abad))
+* **deps:** update module golang.org/x/text to v0.31.0 ([77dd3c9](https://github.com/grafana/wait-for-github/commit/77dd3c99e2a1014586814bea4f34f33d7710d8a3))
+* **deps:** update module golang.org/x/text to v0.33.0 ([775f749](https://github.com/grafana/wait-for-github/commit/775f74942878146643c67b234f14f758802b594b))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/checkout action to v5.0.1 ([ff168d5](https://github.com/grafana/wait-for-github/commit/ff168d5a2bb15ce4b1e282a30c5dadb13df1a35a))
+* **deps:** update actions/checkout action to v6 ([889f706](https://github.com/grafana/wait-for-github/commit/889f70642064bb56b8f4434f170b901b15ff9290))
+* **deps:** update actions/checkout action to v6.0.1 ([b740807](https://github.com/grafana/wait-for-github/commit/b740807abe1f65641ae722fcb32053fe746931b8))
+* **deps:** update actions/setup-go action to v6.1.0 ([502c374](https://github.com/grafana/wait-for-github/commit/502c3744dadb88047f1d7e8e480fad18b989ddb3))
+* **deps:** update actions/setup-go action to v6.2.0 ([37cee20](https://github.com/grafana/wait-for-github/commit/37cee20e4baf7013b0508b40721c4e2b1580a477))
+* **deps:** update gcr.io/distroless/static-debian12 docker digest to 4b2a093 ([bc6fc2e](https://github.com/grafana/wait-for-github/commit/bc6fc2e6595142acb8a3e6dea191ce0179969f2d))
+* **deps:** update gcr.io/distroless/static-debian12 docker digest to cd64bec ([74c229c](https://github.com/grafana/wait-for-github/commit/74c229c19650435baa788dc018a5ce24a45eae0e))
+* **deps:** update github/codeql-action action to v4.31.10 ([9e26c65](https://github.com/grafana/wait-for-github/commit/9e26c65bf9db55d2a3fe9a4d9e7773b356552ea8))
+* **deps:** update github/codeql-action action to v4.31.3 ([8a09862](https://github.com/grafana/wait-for-github/commit/8a09862ecc07a534bee00bc05b1edfbc67c17b3a))
+* **deps:** update github/codeql-action action to v4.31.4 ([14bb779](https://github.com/grafana/wait-for-github/commit/14bb77934cfbf91417ccff9cc3b78062d35826ff))
+* **deps:** update github/codeql-action action to v4.31.5 ([011ee37](https://github.com/grafana/wait-for-github/commit/011ee379fd607ab9e546b71b486d3d04a8042fe7))
+* **deps:** update github/codeql-action action to v4.31.6 ([7e6e8ad](https://github.com/grafana/wait-for-github/commit/7e6e8add70c1c4f1896396eb97fced3057a5d17b))
+* **deps:** update github/codeql-action action to v4.31.7 ([3520b49](https://github.com/grafana/wait-for-github/commit/3520b4931ed5db288a7a938f18d99cb76e81b7b3))
+* **deps:** update github/codeql-action action to v4.31.9 ([f605a5e](https://github.com/grafana/wait-for-github/commit/f605a5e47f0e353f39226d3e825c1780b9aefd0d))
+* **deps:** update golang docker tag to v1.25.5 ([1e9fc23](https://github.com/grafana/wait-for-github/commit/1e9fc23bb9a10b6fbd90368fe249658106bee3c8))
+* **deps:** update golangci/golangci-lint-action action to v9.1.0 ([da60da7](https://github.com/grafana/wait-for-github/commit/da60da7e697e10f803a4c0dec32080670e5d37df))
+* **deps:** update golangci/golangci-lint-action action to v9.2.0 ([5c9414a](https://github.com/grafana/wait-for-github/commit/5c9414a2dfd167d453841dc4c1398dd2b75168d6))
+* **deps:** update grafana/shared-workflows/ action to ([3f05537](https://github.com/grafana/wait-for-github/commit/3f055372f74aca2db0b3dc4f1768b600e0694fe0))
+* **deps:** update grafana/shared-workflows/ action to ([5f7a2d9](https://github.com/grafana/wait-for-github/commit/5f7a2d9daa73b519651adfb64e5f0b94e6dbd520))
+* **deps:** update grafana/shared-workflows/ action to ([2e6294a](https://github.com/grafana/wait-for-github/commit/2e6294a865bf33580b30ddfadc40c14db8d83061))
+* **deps:** update grafana/shared-workflows/ action to ([88d85e4](https://github.com/grafana/wait-for-github/commit/88d85e4ff0b24aed3580c4548e5f770699f33f08))
+* **deps:** update grafana/shared-workflows/ action to ([06234e8](https://github.com/grafana/wait-for-github/commit/06234e8c21d93b7460ebc0d92711f38c9a047030))
+* **deps:** update grafana/shared-workflows/ action to ([44d1bc1](https://github.com/grafana/wait-for-github/commit/44d1bc1212a8747963d45ccafd6a2ca97177700f))
+* **deps:** update grafana/shared-workflows/ action to ([0de2a90](https://github.com/grafana/wait-for-github/commit/0de2a907304efe0719fb00a74b3ffe5d86327207))
+* **deps:** update grafana/shared-workflows/ action to ([07ba6b6](https://github.com/grafana/wait-for-github/commit/07ba6b611cc55e7b4ca851a9933d88aacf3a654c))
+* **deps:** update grafana/shared-workflows/ action to ([d8d671e](https://github.com/grafana/wait-for-github/commit/d8d671efc29190f030184c49ca31f084d5c40aad))
+* **deps:** update grafana/shared-workflows/ action to ([4808b22](https://github.com/grafana/wait-for-github/commit/4808b222550022af7ff174f22d1e821174eaba72))
+* **deps:** update module golang.org/x/crypto to v0.43.0 [security] ([a83c4ec](https://github.com/grafana/wait-for-github/commit/a83c4ecfde7f8ac910bfdb63fbe26713abf234ba))
+* **deps:** update module golang.org/x/crypto to v0.45.0 [security] ([b9855fb](https://github.com/grafana/wait-for-github/commit/b9855fb6adae0441b1426e7d7721c3f5cec64bdd))
+
 ## [1.2.0](https://github.com/grafana/wait-for-github/compare/v1.1.1...v1.2.0) (2025-11-12)
 
 

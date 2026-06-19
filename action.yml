@@ -46,13 +46,17 @@ inputs:
     description: 'Ignore failed CI checks and continue waiting. Only used when wait-for is "pr". Defaults to false'
     required: false
     default: "false"
+  action-retries:
+    description: 'Number of times to retry failed GitHub Actions before failing'
+    required: false
+    default: "0"
 
 runs:
   using: composite
 
   steps:
     - name: Check repository out
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       env:
         action_repo: ${{ github.action_repository }}
         action_ref: ${{ github.action_ref }}
@@ -62,7 +66,7 @@ runs:
         ref: ${{ env.action_ref }}
 
     - name: Set up Go
-      uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+      uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
         go-version-file: ${{ github.workspace }}/action-checkout/go.mod
 
@@ -73,6 +77,7 @@ runs:
         GITHUB_CI_CHECKS: ${{ inputs.checks-to-wait-for }}
         GITHUB_CI_EXCLUDE: ${{ inputs.exclude-checks }}
         GITHUB_IGNORE_FAILED_CI: ${{ inputs.ignore-failed-ci }}
+        GITHUB_ACTION_RETRIES: ${{ inputs.action-retries }}
         GITHUB_APP_ID: ${{ inputs.app-id }}
         GITHUB_APP_INSTALLATION_ID: ${{ inputs.app-installation-id }}
         GITHUB_APP_PRIVATE_KEY: ${{ inputs.app-private-key }}

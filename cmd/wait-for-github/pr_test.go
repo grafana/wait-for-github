@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io/fs"
 	"testing"
+	"time"
 
 	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/stretchr/testify/require"
@@ -31,14 +32,23 @@ import (
 // fakeGithubClientPRCheck implements the checkMergedAndOverallCI interface
 type fakeGithubClientPRCheck struct {
 	MergedCommit string
+	HeadSHA      string // returned by GetPRHeadSHA; defaults to MergedCommit if empty
 	Closed       bool
 	MergedAt     int64
 
-	isPRMergedError   error
-	getPRHeadSHAError error
-	getCIStatusError  error
+	isPRMergedError           error
+	getPRHeadSHAError         error
+	getCIStatusError          error
+	rerunFailedWorkflowsError error
+	mergePRError              error
 
-	CIStatus github.CIStatus
+	CIStatus              github.CIStatus
+	RerunCount            int
+	HasRunsInProgress     bool
+	RerunCalledCount      int
+	MergeCalledCount      int
+	MergeCalledWithSHA    string
+	MergeCalledWithMethod string
 }
 
 func (fg *fakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
@@ -46,6 +56,9 @@ func (fg *fakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner
 }
 
 func (fg *fakeGithubClientPRCheck) GetPRHeadSHA(ctx context.Context, owner, repo string, pr int) (string, error) {
+	if fg.HeadSHA != "" {
+		return fg.HeadSHA, fg.getPRHeadSHAError
+	}
 	return fg.MergedCommit, fg.getPRHeadSHAError
 }
 
@@ -53,14 +66,32 @@ func (fg *fakeGithubClientPRCheck) GetCIStatus(ctx context.Context, owner, repo 
 	return fg.CIStatus, fg.getCIStatusError
 }
 
+func (fg *fakeGithubClientPRCheck) RerunFailedWorkflowsForCommit(ctx context.Context, owner, repo, commitHash string) (int, bool, error) {
+	fg.RerunCalledCount++
+	return fg.RerunCount, fg.HasRunsInProgress, fg.rerunFailedWorkflowsError
+}
+
+func (fg *fakeGithubClientPRCheck) MergePR(ctx context.Context, owner, repo string, pr int, sha, mergeMethod string) error {
+	fg.MergeCalledCount++
+	fg.MergeCalledWithSHA = sha
+	fg.MergeCalledWithMethod = mergeMethod
+	return fg.mergePRError
+}
+
 func TestPRCheck(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name             string
-		fakeClient       fakeGithubClientPRCheck
-		expectedExitCode *int
-		ignoreFailedCI   bool
+		name              string
+		fakeClient        fakeGithubClientPRCheck
+		ignoreFailedCI    bool
+		actionRetries     int
+		autoMerge         bool
+		autoMergeMethod   string
+		expectedExitCode  *int
+		expectMergeCalled bool
+		expectMergeSHA    string
+		expectMergeMethod string
 	}{
 		{
 			name: "PR is merged",
@@ -116,6 +147,33 @@ func TestPRCheck(t *testing.T) {
 			expectedExitCode: &one,
 		},
 		{
+			name: "CI failed with action-retries, workflows rerun",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:   github.CIStatusFailed,
+				RerunCount: 1,
+			},
+			actionRetries: 2,
+			// No exit code - should continue waiting after rerun
+		},
+		{
+			name: "CI failed with action-retries, no workflows to rerun",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:   github.CIStatusFailed,
+				RerunCount: 0,
+			},
+			actionRetries:    2,
+			expectedExitCode: &one,
+		},
+		{
+			name: "CI failed with action-retries, rerun error continues waiting",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:                  github.CIStatusFailed,
+				rerunFailedWorkflowsError: fmt.Errorf("rerun failed"),
+			},
+			actionRetries: 2,
+			// No exit code - should continue waiting and retry later
+		},
+		{
 			name: "Not merged, getting PR head SHA failed",
 			fakeClient: fakeGithubClientPRCheck{
 				getPRHeadSHAError: fmt.Errorf("an error occurred"),
@@ -126,6 +184,82 @@ func TestPRCheck(t *testing.T) {
 			fakeClient: fakeGithubClientPRCheck{
 				getCIStatusError: fmt.Errorf("an error occurred"),
 			},
+		},
+		{
+			name: "CI passed with auto-merge squash, merge succeeds",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:  "abc123",
+				CIStatus: github.CIStatusPassed,
+			},
+			autoMerge:         true,
+			autoMergeMethod:   "squash",
+			expectMergeCalled: true,
+			expectMergeSHA:    "abc123",
+			expectMergeMethod: "squash",
+			// No exit code - continues polling to detect merge
+		},
+		{
+			name: "CI passed with auto-merge rebase, merge succeeds",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:  "abc123",
+				CIStatus: github.CIStatusPassed,
+			},
+			autoMerge:         true,
+			autoMergeMethod:   "rebase",
+			expectMergeCalled: true,
+			expectMergeSHA:    "abc123",
+			expectMergeMethod: "rebase",
+		},
+		{
+			name: "CI passed with auto-merge, default method",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:  "abc123",
+				CIStatus: github.CIStatusPassed,
+			},
+			autoMerge:         true,
+			autoMergeMethod:   "merge",
+			expectMergeCalled: true,
+			expectMergeSHA:    "abc123",
+			expectMergeMethod: "merge",
+		},
+		{
+			name: "CI passed with auto-merge, merge fails",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:      "abc123",
+				CIStatus:     github.CIStatusPassed,
+				mergePRError: fmt.Errorf("merge failed"),
+			},
+			autoMerge:         true,
+			autoMergeMethod:   "squash",
+			expectMergeCalled: true,
+			expectMergeSHA:    "abc123",
+			expectMergeMethod: "squash",
+			// No exit code - continues polling and will retry
+		},
+		{
+			name: "CI pending with auto-merge, no merge attempt",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus: github.CIStatusPending,
+			},
+			autoMerge:       true,
+			autoMergeMethod: "squash",
+			// No exit code, no merge - waiting for CI to finish
+		},
+		{
+			name: "CI passed without auto-merge, no merge attempt",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus: github.CIStatusPassed,
+			},
+			// No exit code, no merge
+		},
+		{
+			name: "CI unknown with auto-merge, no merge attempt",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus: github.CIStatusUnknown,
+			},
+			autoMerge:       true,
+			autoMergeMethod: "merge",
+			// No exit code, no merge — only CIStatusPassed triggers auto-merge
 		},
 	}
 
@@ -141,10 +275,13 @@ func TestPRCheck(t *testing.T) {
 			cancel()
 
 			prConfig := prConfig{
-				owner:          "owner",
-				repo:           "repo",
-				pr:             1,
-				ignoreFailedCI: tt.ignoreFailedCI,
+				owner:           "owner",
+				repo:            "repo",
+				pr:              1,
+				ignoreFailedCI:  tt.ignoreFailedCI,
+				actionRetries:   tt.actionRetries,
+				autoMerge:       tt.autoMerge,
+				autoMergeMethod: tt.autoMergeMethod,
 			}
 
 			err := checkPRMerged(ctx, fakePRStatusChecker, cfg, &prConfig)
@@ -155,8 +292,64 @@ func TestPRCheck(t *testing.T) {
 			} else if err != nil {
 				require.NotNil(t, err)
 			}
+
+			if tt.expectMergeCalled {
+				require.Greater(t, fakePRStatusChecker.MergeCalledCount, 0, "expected MergePR to be called")
+				if tt.expectMergeSHA != "" {
+					require.Equal(t, tt.expectMergeSHA, fakePRStatusChecker.MergeCalledWithSHA, "expected MergePR to be called with head SHA")
+				}
+				if tt.expectMergeMethod != "" {
+					require.Equal(t, tt.expectMergeMethod, fakePRStatusChecker.MergeCalledWithMethod, "expected MergePR to be called with merge method")
+				}
+			} else {
+				require.Equal(t, 0, fakePRStatusChecker.MergeCalledCount, "expected MergePR not to be called")
+			}
 		})
 	}
+}
+
+// TestPRCheckRetryWithInProgressWorkflow tests the race condition where GetCIStatus
+// reports failure (a job has failed) but the workflow run hasn't concluded yet because
+// other jobs are still running. RerunFailedWorkflowsForCommit returns 0 on the first
+// call (no concluded runs to retry), and on the next poll the workflow has completed
+// and can be retried.
+func TestPRCheckRetryWithInProgressWorkflow(t *testing.T) {
+	t.Parallel()
+
+	fakeClient := &fakeGithubClientPRCheck{
+		CIStatus:          github.CIStatusFailed,
+		RerunCount:        0,    // Workflow run hasn't concluded yet, no runs match "failure" conclusion
+		HasRunsInProgress: true, // Other jobs in the workflow are still running
+	}
+
+	pr := &prCheck{
+		prConfig: prConfig{
+			owner:         "owner",
+			repo:          "repo",
+			pr:            1,
+			actionRetries: 2,
+		},
+		githubClient: fakeClient,
+		logger:       testLogger,
+	}
+
+	// First check: CI reports failure (from a failed job), but the workflow run
+	// is still in progress so RerunFailedWorkflowsForCommit finds nothing to retry.
+	// Should continue waiting because runs are still in progress.
+	err := pr.Check(context.Background())
+	require.NoError(t, err, "should continue waiting when workflow runs are still in progress")
+	require.Equal(t, 1, fakeClient.RerunCalledCount)
+	require.Equal(t, 0, pr.retriesDone, "retriesDone should not increment when no workflows were rerun")
+
+	// Simulate the workflow run completing — it now has conclusion "failure" and is retryable.
+	fakeClient.RerunCount = 1
+	fakeClient.HasRunsInProgress = false
+
+	// Second check: CI still failed, workflow run now concluded and gets retried.
+	err = pr.Check(context.Background())
+	require.NoError(t, err, "should continue waiting after successful rerun")
+	require.Equal(t, 2, fakeClient.RerunCalledCount)
+	require.Equal(t, 1, pr.retriesDone, "retriesDone should increment after successful rerun")
 }
 
 type fakeFileWriter struct {
@@ -242,6 +435,49 @@ func TestWriteCommitInfoFileError(t *testing.T) {
 
 	err := prCheck.Check(context.Background())
 	require.Error(t, err)
+}
+
+// rateLimitThenMergedClient embeds fakeGithubClientPRCheck but overrides
+// IsPRMergedOrClosed to return a GitHubRateLimitError on the first call and a
+// merged PR on the second, exercising the rate-limit retry path end-to-end.
+type rateLimitThenMergedClient struct {
+	fakeGithubClientPRCheck
+	calls int
+}
+
+func (c *rateLimitThenMergedClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
+	c.calls++
+	if c.calls == 1 {
+		return "", false, 0, &github.GitHubRateLimitError{
+			Operation: "GetPullRequest",
+			ResetTime: time.Now().Add(50 * time.Millisecond),
+		}
+	}
+	return "abc123", false, 1234567890, nil
+}
+
+// TestPRCheckRateLimitRetry verifies that checkPRMerged does not exit with a
+// rate-limit error. It should wait until ResetTime and retry, ultimately
+// returning exit code 0 when the PR is found to be merged.
+func TestPRCheckRateLimitRetry(t *testing.T) {
+	t.Parallel()
+
+	client := &rateLimitThenMergedClient{}
+	cfg := &config{
+		recheckInterval: 10 * time.Millisecond,
+		logger:          testLogger,
+	}
+	prConf := &prConfig{owner: "owner", repo: "repo", pr: 1}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := checkPRMerged(ctx, client, cfg, prConf)
+
+	var exitErr cli.ExitCoder
+	require.ErrorAs(t, err, &exitErr)
+	require.Equal(t, 0, exitErr.ExitCode(), "expected exit code 0 (PR merged), not a rate limit error")
+	require.Equal(t, 2, client.calls, "expected exactly two calls: one rate-limited, one successful")
 }
 
 func TestParsePRArguments(t *testing.T) {

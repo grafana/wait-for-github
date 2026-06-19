@@ -36,6 +36,8 @@ key, ID and installtion ID.
 The GitHub token or app needs the following permissions:
 
 - `actions:read` - Read names of workflows which ran on a ref
+- `actions:write` - Required only if using `--action-retries` to rerun failed
+  workflows
 - `checks:read` - Read check run status and conclusions for CI checks
 - `contents:read` - Access commit data through GitHub's GraphQL API when
   checking CI status
@@ -59,6 +61,7 @@ USAGE:
    wait-for-github pr [command options] <https://github.com/OWNER/REPO/pulls/PR|owner> [<repo> <pr>]
 
 OPTIONS:
+   --action-retries value    Number of times to retry failed GitHub Actions before failing. Set to 0 to disable retries. (default: 0) [$GITHUB_ACTION_RETRIES]
    --commit-info-file value  Path to a file which the commit info will be written. The file will be overwritten if it already exists.
    --exclude value, -x value [ --exclude value, -x value ]  Exclude the status of a specific CI check from failing the wait. By default, a failed status check will exit the pr wait command. [$GITHUB_CI_EXCLUDE]
    --ignore-failed-ci        Continue waiting for PR merge/close even if CI checks fail. Defaults to false. [$GITHUB_IGNORE_FAILED_CI]
@@ -72,6 +75,10 @@ being merged it will exit with code `1` (failure).
 By default, the command will also exit with code `1` if the CI checks on the PR
 fail. This behavior can be disabled by setting `--ignore-failed-ci=true`.
 
+To automatically retry failed GitHub Actions workflows, use the `--action-retries`
+flag. For example, `--action-retries 2` will retry failed workflows up to 2 times
+before actually failing.
+
 #### `ci`
 
 ```
@@ -82,6 +89,7 @@ USAGE:
    wait-for-github ci [command options] <https://github.com/OWNER/REPO/commit|pull/HASH|PRNumber|owner> [<repo> <ref>]
 
 OPTIONS:
+   --action-retries value    Number of times to retry failed GitHub Actions before failing. Set to 0 to disable retries. (default: 0) [$GITHUB_ACTION_RETRIES]
    --check value, -c value [ --check value, -c value ]  Check the status of a specific CI check. By default, the status of all required checks is checked. [$GITHUB_CI_CHECKS]
    --exclude value, -x value [ --exclude value, -x value ]  Exclude the status of a specific CI check. Argument ignored if checks are specified individually. By default, the status of all checks is checked. [$GITHUB_CI_EXCLUDE]
    --help, -h  show help (default: false)
@@ -89,6 +97,10 @@ OPTIONS:
 
 This command will wait for CI checks to finish for a ref or PR URL. If they finish
 successfully it will exit `0` and otherwise it will exit `1`.
+
+To automatically retry failed GitHub Actions workflows, use the `--action-retries`
+flag. For example, `--action-retries 2` will retry failed workflows up to 2 times
+before actually failing.
 
 To wait for a specific check to finish, use the `--check` flag. To exclude
 specific checks from failing the status, use the `--exclude` flag. See below for
@@ -153,6 +165,10 @@ might take some time to be reported to GitHub and they aren't marked as required
 checks on the repository. Only used when `wait-for` is set to `"ci"`. Optional.
 If not set, all checks will be waited for, but then the tool may miss checks
 which are not added immediately.
+
+#### `action-retries`
+
+Number of times to retry failed GitHub Actions before failing. Optional. Default is `0` (no retries).
 
 #### `interval`
 

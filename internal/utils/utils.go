@@ -18,17 +18,57 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/grafana/wait-for-github/internal/github"
 	"github.com/urfave/cli/v3"
 )
 
 type Check interface {
 	Check(ctx context.Context) error
+}
+
+// TryRerunFailedWorkflows attempts to rerun failed workflows if retries are available.
+// Returns whether to continue waiting, and the updated retriesDone count.
+func TryRerunFailedWorkflows(ctx context.Context, client github.RerunFailedWorkflows, logger *slog.Logger, owner, repo, ref string, actionRetries, retriesDone int) (bool, int) {
+	if actionRetries == 0 || retriesDone >= actionRetries {
+		return false, retriesDone
+	}
+
+	logger.InfoContext(ctx, "CI failed, attempting to retry failed GitHub Actions",
+		"retries_done", retriesDone, "retries_allowed", actionRetries)
+
+	rerunCount, hasIncompleteRuns, err := client.RerunFailedWorkflowsForCommit(ctx, owner, repo, ref)
+	if err != nil {
+		logger.WarnContext(ctx, "failed to rerun workflows, will retry", "error", err)
+		return true, retriesDone
+	}
+
+	if rerunCount > 0 {
+		retriesDone++
+		logger.InfoContext(ctx, "re-ran failed workflows, continuing to wait",
+			"workflows_rerun", rerunCount, "retries_done", retriesDone)
+		return true, retriesDone
+	}
+
+	if hasIncompleteRuns {
+		// No concluded workflow runs to retry yet, but some are still running.
+		// This happens when a job fails but other jobs in the same workflow
+		// run are still in progress — the run won't have a "failure" conclusion
+		// until all jobs complete. Keep waiting so we can retry on the next poll.
+		logger.InfoContext(ctx, "CI failed but workflow runs still in progress, will keep waiting",
+			"runs_in_progress", true, "failed_concluded_runs_count", rerunCount)
+		return true, retriesDone
+	}
+
+	// No workflows were rerun and none are in progress, fail immediately
+	logger.InfoContext(ctx, "CI failed with no GitHub Actions to retry, exiting")
+	return false, retriesDone
 }
 
 func RunUntilCancelledOrTimeout(ctx context.Context, logger *slog.Logger, check Check, interval time.Duration) error {
@@ -38,16 +78,40 @@ func RunUntilCancelledOrTimeout(ctx context.Context, logger *slog.Logger, check 
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT)
 
+	rateLimited := false
+
 	for {
 		err := check.Check(ctx)
 		if err != nil {
-			return err
+			// If this is a rate limiting error, we should consider the
+			// RetryAfter and x-ratelimit-reset headers where present. They
+			// should act as minimum wait time unless interval is already
+			// larger:
+			rle := &github.GitHubRateLimitError{}
+			arle := &github.GitHubAbuseRateLimitError{}
+			if errors.As(err, &rle) {
+				newWait := max(interval, time.Until(rle.ResetTime))
+				ticker.Reset(newWait)
+				logger.InfoContext(ctx, "check was rate limited", "type", "rate-limit", "wait", newWait.String())
+				rateLimited = true
+			} else if errors.As(err, &arle) {
+				newWait := max(interval, arle.RetryAfter)
+				ticker.Reset(newWait)
+				logger.InfoContext(ctx, "check was rate limited", "type", "abuse-rate-limit", "wait", newWait.String())
+				rateLimited = true
+			} else {
+				return err
+			}
 		}
 
 		logger.InfoContext(ctx, "rechecking", "interval", interval)
 
 		select {
 		case <-ticker.C:
+			if rateLimited {
+				ticker.Reset(interval)
+				rateLimited = false
+			}
 		case <-ctx.Done():
 			logger.InfoContext(ctx, "timeout reached, exiting")
 			return cli.Exit("Timeout reached", 1)

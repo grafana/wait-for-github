@@ -29,7 +29,7 @@ import (
 	"time"
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v80/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/migueleliasweb/go-github-mock/src/mock"
@@ -92,7 +92,7 @@ func TestNewGithubClientWithAppAuthentication(t *testing.T) {
 		InstallationID: 123,
 		AppID:          456,
 		// generate this with: openssl genrsa 32 2>/dev/null | awk 1 ORS='\\n'
-		PrivateKey: []byte("-----BEGIN RSA PRIVATE KEY-----\nMC0CAQACBQD7J5Q9AgMBAAECBB6C8NkCAwD+JwIDAPz7AgMA1xcCAkoZAgMAwE8=\n-----END RSA PRIVATE KEY-----"),
+		PrivateKey: []byte("-----BEGIN RSA PRIVATE KEY-----\nMC0CAQACBQD7J5Q9AgMBAAECBB6C8NkCAwD+JwIDAPz7AgMA1xcCAkoZAgMAwE8=\n-----END RSA PRIVATE KEY-----"), // trufflehog:ignore
 	}
 	pendingRecheckTime := 1 * time.Second
 
@@ -131,9 +131,14 @@ func newClientFromMock(t *testing.T, mockClient *http.Client, graphQLURL string)
 
 	httpClient := &http.Client{Transport: transport}
 
+	ghc, err := github.NewClient(github.WithHTTPClient(httpClient))
+	if err != nil {
+		require.NoError(t, err)
+	}
+
 	return &GHClient{
 		logger:             testLogger,
-		client:             github.NewClient(httpClient),
+		client:             ghc,
 		graphQLClient:      graphql.NewClient(graphQLURL, httpClient),
 		pendingRecheckTime: 0,
 	}
@@ -196,10 +201,10 @@ func TestResponsesAreCached(t *testing.T) {
 	epoch := time.Unix(0, 0)
 
 	pr := &github.PullRequest{
-		MergeCommitSHA: github.String("abc123"),
+		MergeCommitSHA: github.Ptr("abc123"),
 		MergedAt:       &github.Timestamp{Time: epoch},
-		Merged:         github.Bool(true),
-		State:          github.String("closed"),
+		Merged:         github.Ptr(true),
+		State:          github.Ptr("closed"),
 	}
 	now := time.Now().Format(http.TimeFormat)
 
@@ -289,9 +294,14 @@ func newErrorReturningClient(t *testing.T) *GHClient {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}))
 
+	ghc, err := github.NewClient()
+	if err != nil {
+		require.NoError(t, err)
+	}
+
 	return &GHClient{
 		logger:        testLogger,
-		client:        github.NewClient(nil),
+		client:        ghc,
 		graphQLClient: graphql.NewClient(mockServer.URL, http.DefaultClient),
 	}
 }
@@ -305,11 +315,11 @@ func TestIsPRMergedOrClosed_Success(t *testing.T) {
 		mock.WithRequestMatch(
 			mock.GetReposPullsByOwnerByRepoByPullNumber,
 			github.PullRequest{
-				Number:         github.Int(1),
-				State:          github.String("closed"),
-				Merged:         github.Bool(true),
+				Number:         github.Ptr(1),
+				State:          github.Ptr("closed"),
+				Merged:         github.Ptr(true),
 				MergedAt:       &github.Timestamp{Time: time.Now()},
-				MergeCommitSHA: github.String("abcdef12345"),
+				MergeCommitSHA: github.Ptr("abcdef12345"),
 			},
 		),
 	)
@@ -793,6 +803,71 @@ func TestGetCIStatus(t *testing.T) {
 			excludedChecks: []string{"deployment", "workflow"},
 			expectedStatus: CIStatusFailed,
 		},
+		{
+			name: "status context with error state treated as failure",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 0,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "StatusContext",
+											"context": "dev-policy-bot: master",
+											"state": "ERROR"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			expectedStatus: CIStatusFailed,
+		},
+		{
+			name: "excluded status context with error state",
+			mockGraphQL: `
+            {
+				"data": {
+					"repository": {
+						"object": {
+							"statusCheckRollup": {
+								"state": "FAILURE",
+								"contexts": {
+									"checkRunCount": 0,
+									"statusContextCount": 1,
+									"nodes": [
+										{
+											"__typename": "StatusContext",
+											"context": "dev-policy-bot: master",
+											"state": "ERROR"
+										}
+									],
+									"pageInfo": {
+										"hasNextPage": false,
+										"endCursor": null
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+            `,
+			excludedChecks: []string{"dev-policy-bot: master"},
+			expectedStatus: CIStatusPassed,
+		},
 	}
 
 	for _, tt := range tests {
@@ -853,9 +928,9 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -868,9 +943,9 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("failure"),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionFailure),
 					},
 				},
 			},
@@ -883,8 +958,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:   github.String("check1"),
-						Status: github.String("queued"),
+						Name:   github.Ptr("check1"),
+						Status: github.Ptr(RunStatusQueued),
 					},
 				},
 			},
@@ -897,8 +972,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:   github.String("check1"),
-						Status: github.String("in_progress"),
+						Name:   github.Ptr("check1"),
+						Status: github.Ptr(RunStatusInProgress),
 					},
 				},
 			},
@@ -911,9 +986,9 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Conclusion: github.String("skipped"),
-						Status:     github.String("completed"),
+						Name:       github.Ptr("check1"),
+						Conclusion: github.Ptr(RunConclusionSkipped),
+						Status:     github.Ptr(RunStatusCompleted),
 					},
 				},
 			},
@@ -926,8 +1001,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String("success"),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
@@ -940,12 +1015,12 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("what"),
-						State:   github.String("failed"),
+						Context: github.Ptr("what"),
+						State:   github.Ptr("failed"),
 					},
 					{
-						Context: github.String("check1"),
-						State:   github.String("success"),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
@@ -958,14 +1033,14 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("what"),
-						State:   github.String("failed"),
+						Context: github.Ptr("what"),
+						State:   github.Ptr("failed"),
 					},
 				},
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String("success"),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
@@ -978,8 +1053,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String("failure"),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateFailure),
 					},
 				},
 			},
@@ -992,8 +1067,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String("pending"),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStatePending),
 					},
 				},
 			},
@@ -1006,8 +1081,8 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String("error"),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateError),
 					},
 				},
 			},
@@ -1020,14 +1095,14 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 					{
-						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1040,16 +1115,16 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 				{
 					{
-						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1060,14 +1135,14 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 					{
-						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("failure"),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionFailure),
 					},
 				},
 			},
@@ -1080,16 +1155,16 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 				{
 					{
-						Name:       github.String("check2"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("failure"),
+						Name:       github.Ptr("check2"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionFailure),
 					},
 				},
 			},
@@ -1102,13 +1177,13 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check1"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check1"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 					{
-						Name:   github.String("check2"),
-						Status: github.String("queued"),
+						Name:   github.Ptr("check2"),
+						Status: github.Ptr(RunStatusQueued),
 					},
 				},
 			},
@@ -1121,30 +1196,30 @@ func TestGetCIStatusForChecks(t *testing.T) {
 			mockRepoStatus: [][]github.RepoStatus{
 				{
 					{
-						Context: github.String("check1"),
-						State:   github.String("success"),
+						Context: github.Ptr("check1"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 				{
 					{
-						Context: github.String("check2"),
-						State:   github.String("success"),
+						Context: github.Ptr("check2"),
+						State:   github.Ptr(StatusStateSuccess),
 					},
 				},
 			},
 			mockCheckRuns: [][]github.CheckRun{
 				{
 					{
-						Name:       github.String("check3"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check3"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 				{
 					{
-						Name:       github.String("check4"),
-						Status:     github.String("completed"),
-						Conclusion: github.String("success"),
+						Name:       github.Ptr("check4"),
+						Status:     github.Ptr(RunStatusCompleted),
+						Conclusion: github.Ptr(RunConclusionSuccess),
 					},
 				},
 			},
@@ -1204,7 +1279,7 @@ func TestGetCIStatusForChecks(t *testing.T) {
 							}
 							pages[i] = mock.MustMarshal(
 								github.ListCheckRunsResults{
-									Total:     github.Int(len(runs[i])),
+									Total:     github.Ptr(len(runs[i])),
 									CheckRuns: runs[i],
 								},
 							)
@@ -1252,7 +1327,7 @@ func TestGetCIStatusForChecks_ErrorListStatuses(t *testing.T) {
 		mock.WithRequestMatch(
 			mock.GetReposCommitsCheckRunsByOwnerByRepoByRef,
 			github.ListCheckRunsResults{
-				Total:     github.Int(0),
+				Total:     github.Ptr(0),
 				CheckRuns: []*github.CheckRun{},
 			},
 		),
@@ -1276,7 +1351,7 @@ func TestGetPRHeadSHA(t *testing.T) {
 			mock.GetReposPullsByOwnerByRepoByPullNumber,
 			github.PullRequest{
 				Head: &github.PullRequestBranch{
-					SHA: github.String("abcdef12345"),
+					SHA: github.Ptr("abcdef12345"),
 				},
 			},
 		),
@@ -1296,6 +1371,207 @@ func TestGetPRHeadSHA_Error(t *testing.T) {
 	ghClient := newErrorReturningClient(t)
 	_, err := ghClient.GetPRHeadSHA(ctx, "owner", "repo", 1)
 	require.Error(t, err)
+}
+
+func TestRerunFailedWorkflowsForCommit(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name                      string
+		workflowRuns              []*github.WorkflowRun
+		rerunShouldFail           bool
+		expectedRerunCount        int
+		expectedHasIncompleteRuns bool
+		expectedError             bool
+		expectedRerunCalled       int
+	}{
+		{
+			name: "reruns failed workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+			},
+			expectedRerunCount:  1,
+			expectedRerunCalled: 1,
+		},
+		{
+			name: "reruns timed_out workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionTimedOut)},
+			},
+			expectedRerunCount:  1,
+			expectedRerunCalled: 1,
+		},
+		{
+			name: "does not rerun successful workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionSuccess)},
+			},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "does not rerun cancelled workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionCancelled)},
+			},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "does not rerun skipped workflow",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionSkipped)},
+			},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "reruns multiple failed workflows",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+				{ID: github.Ptr[int64](2), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionTimedOut)},
+				{ID: github.Ptr[int64](3), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionSuccess)},
+			},
+			expectedRerunCount:  2,
+			expectedRerunCalled: 2,
+		},
+		{
+			name:                "handles empty workflow list",
+			workflowRuns:        []*github.WorkflowRun{},
+			expectedRerunCount:  0,
+			expectedRerunCalled: 0,
+		},
+		{
+			name: "rerun API failure returns error",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+			},
+			rerunShouldFail:     true,
+			expectedRerunCount:  0,
+			expectedError:       true,
+			expectedRerunCalled: 5, // retries 5 times before failing
+		},
+		{
+			name: "reports in-progress runs",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusInProgress), Conclusion: github.Ptr("")},
+			},
+			expectedRerunCount:        0,
+			expectedHasIncompleteRuns: true,
+			expectedRerunCalled:       0,
+		},
+		{
+			name: "in-progress run alongside failed run",
+			workflowRuns: []*github.WorkflowRun{
+				{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+				{ID: github.Ptr[int64](2), Status: github.Ptr(RunStatusInProgress), Conclusion: github.Ptr("")},
+			},
+			expectedRerunCount:        1,
+			expectedHasIncompleteRuns: true,
+			expectedRerunCalled:       1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := context.Background()
+			rerunCallCount := 0
+
+			mockedHTTPClient := mock.NewMockedHTTPClient(
+				mock.WithRequestMatch(
+					mock.GetReposActionsRunsByOwnerByRepo,
+					github.WorkflowRuns{
+						TotalCount:   github.Ptr(len(tt.workflowRuns)),
+						WorkflowRuns: tt.workflowRuns,
+					},
+				),
+				mock.WithRequestMatchHandler(
+					mock.PostReposActionsRunsRerunFailedJobsByOwnerByRepoByRunId,
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						rerunCallCount++
+						if tt.rerunShouldFail {
+							mock.WriteError(w, http.StatusInternalServerError, "Internal Server Error")
+							return
+						}
+						w.WriteHeader(http.StatusCreated)
+					}),
+				),
+			)
+
+			ghClient := newClientFromMock(t, mockedHTTPClient, "")
+			count, hasIncompleteRuns, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+
+			if tt.expectedError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.expectedRerunCount, count)
+			require.Equal(t, tt.expectedHasIncompleteRuns, hasIncompleteRuns)
+			require.Equal(t, tt.expectedRerunCalled, rerunCallCount)
+		})
+	}
+}
+
+func TestRerunFailedWorkflowsForCommit_ListError(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatchHandler(
+			mock.GetReposActionsRunsByOwnerByRepo,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				mock.WriteError(w, http.StatusInternalServerError, "Internal Server Error")
+			}),
+		),
+	)
+
+	ghClient := newClientFromMock(t, mockedHTTPClient, "")
+	_, _, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to list workflow runs")
+}
+
+func TestRerunFailedWorkflowsForCommit_DeduplicatesRuns(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	rerunCallCount := 0
+
+	// Simulate the same run appearing twice (edge case)
+	workflowRuns := []*github.WorkflowRun{
+		{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)},
+		{ID: github.Ptr[int64](1), Status: github.Ptr(RunStatusCompleted), Conclusion: github.Ptr(RunConclusionFailure)}, // duplicate
+	}
+
+	mockedHTTPClient := mock.NewMockedHTTPClient(
+		mock.WithRequestMatch(
+			mock.GetReposActionsRunsByOwnerByRepo,
+			github.WorkflowRuns{
+				TotalCount:   github.Ptr(len(workflowRuns)),
+				WorkflowRuns: workflowRuns,
+			},
+		),
+		mock.WithRequestMatchHandler(
+			mock.PostReposActionsRunsRerunFailedJobsByOwnerByRepoByRunId,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				rerunCallCount++
+				w.WriteHeader(http.StatusCreated)
+			}),
+		),
+	)
+
+	ghClient := newClientFromMock(t, mockedHTTPClient, "")
+	count, hasIncompleteRuns, err := ghClient.RerunFailedWorkflowsForCommit(ctx, "owner", "repo", "abc123")
+
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.False(t, hasIncompleteRuns)
+	require.Equal(t, 1, rerunCallCount)
 }
 
 func TestHandleResponseError(t *testing.T) {
