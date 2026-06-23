@@ -50,6 +50,7 @@ type prConfig struct {
 
 	commitInfoFile  string
 	excludes        []string
+	ignoreFailedCI  bool
 	actionRetries   int
 	autoMerge       bool
 	autoMergeMethod string
@@ -135,6 +136,7 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 		pr:              n,
 		commitInfoFile:  cmd.String("commit-info-file"),
 		excludes:        excludes,
+		ignoreFailedCI:  cmd.Bool("ignore-failed-ci"),
 		actionRetries:   int(cmd.Int("action-retries")),
 		autoMerge:       cmd.Bool("auto-merge"),
 		autoMergeMethod: cmd.String("auto-merge-method"),
@@ -195,6 +197,10 @@ func (pr *prCheck) Check(ctx context.Context) error {
 
 	if closed {
 		return cli.Exit("PR is closed", 1)
+	}
+
+	if pr.ignoreFailedCI {
+		return nil
 	}
 
 	// not merged, not closed, let's see what the CI status is. If that's bad,
@@ -269,6 +275,14 @@ func prCommand(cfg *config) *cli.Command {
 					"By default, a failed status check will exit the pr wait command.",
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("GITHUB_CI_EXCLUDE"),
+				),
+			},
+			&cli.BoolFlag{
+				Name:  "ignore-failed-ci",
+				Usage: "Ignore failed CI checks and continue waiting. Defaults to false.",
+				Value: false,
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_IGNORE_FAILED_CI"),
 				),
 			},
 			&cli.IntFlag{

@@ -36,16 +36,16 @@ type fakeGithubClientPRCheck struct {
 	Closed       bool
 	MergedAt     int64
 
-	isPRMergedError            error
-	getPRHeadSHAError          error
-	getCIStatusError           error
-	rerunFailedWorkflowsError  error
-	mergePRError               error
+	isPRMergedError           error
+	getPRHeadSHAError         error
+	getCIStatusError          error
+	rerunFailedWorkflowsError error
+	mergePRError              error
 
-	CIStatus          github.CIStatus
-	RerunCount        int
-	HasRunsInProgress bool
-	RerunCalledCount  int
+	CIStatus              github.CIStatus
+	RerunCount            int
+	HasRunsInProgress     bool
+	RerunCalledCount      int
 	MergeCalledCount      int
 	MergeCalledWithSHA    string
 	MergeCalledWithMethod string
@@ -84,6 +84,7 @@ func TestPRCheck(t *testing.T) {
 	tests := []struct {
 		name              string
 		fakeClient        fakeGithubClientPRCheck
+		ignoreFailedCI    bool
 		actionRetries     int
 		autoMerge         bool
 		autoMergeMethod   string
@@ -121,10 +122,28 @@ func TestPRCheck(t *testing.T) {
 			},
 		},
 		{
-			name: "Not merged, but CI failed",
+			name: "Not merged, but CI failed (ignore-failed-ci disabled)",
 			fakeClient: fakeGithubClientPRCheck{
 				CIStatus: github.CIStatusFailed,
 			},
+			expectedExitCode: &one,
+		},
+		{
+			name: "Merged, CI failed",
+			fakeClient: fakeGithubClientPRCheck{
+				CIStatus:     github.CIStatusFailed,
+				MergedCommit: "abc123",
+				MergedAt:     1234567890,
+			},
+			expectedExitCode: &zero,
+		},
+		{
+			name: "Closed, CI failed (ignore-failed-ci enabled)",
+			fakeClient: fakeGithubClientPRCheck{
+				Closed:   true,
+				CIStatus: github.CIStatusFailed,
+			},
+			ignoreFailedCI:   true,
 			expectedExitCode: &one,
 		},
 		{
@@ -259,6 +278,7 @@ func TestPRCheck(t *testing.T) {
 				owner:           "owner",
 				repo:            "repo",
 				pr:              1,
+				ignoreFailedCI:  tt.ignoreFailedCI,
 				actionRetries:   tt.actionRetries,
 				autoMerge:       tt.autoMerge,
 				autoMergeMethod: tt.autoMergeMethod,
@@ -473,20 +493,22 @@ func TestParsePRArguments(t *testing.T) {
 			name: "Valid pull request URL",
 			args: []string{"https://github.com/owner/repo/pull/1"},
 			want: prConfig{
-				owner:  "owner",
-				repo:   "repo",
-				pr:     1,
-				writer: osFileWriter{},
+				owner:          "owner",
+				repo:           "repo",
+				pr:             1,
+				ignoreFailedCI: false,
+				writer:         osFileWriter{},
 			},
 		},
 		{
 			name: "Valid arguments owner, repo, pr",
 			args: []string{"owner", "repo", "1"},
 			want: prConfig{
-				owner:  "owner",
-				repo:   "repo",
-				pr:     1,
-				writer: osFileWriter{},
+				owner:          "owner",
+				repo:           "repo",
+				pr:             1,
+				ignoreFailedCI: false,
+				writer:         osFileWriter{},
 			},
 		},
 		{
@@ -514,6 +536,12 @@ func TestParsePRArguments(t *testing.T) {
 			rootCmd := &cli.Command{}
 			prCmd := &cli.Command{
 				Name: "pr",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "ignore-failed-ci",
+						Value: false,
+					},
+				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					got, err := parsePRArguments(ctx, cmd, testLogger)
 					if tt.wantErr != nil {
