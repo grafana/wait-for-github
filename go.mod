@@ -18,7 +18,7 @@ require (
 	github.com/urfave/cli/v3 v3.10.1
 	github.com/willabides/actionslog v0.5.1
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/term v0.44.0
+	golang.org/x/term v0.45.0
 	golang.org/x/text v0.40.0
 )
 
