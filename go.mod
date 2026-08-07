@@ -7,7 +7,7 @@ toolchain go1.26.5
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.19.0
 	github.com/fatih/color v1.19.0
-	github.com/google/go-github/v89 v89.0.0
+	github.com/google/go-github/v90 v90.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/lmittmann/tint v1.1.3
