@@ -49,6 +49,13 @@ type CheckPRMerged interface {
 	IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error)
 }
 
+type CheckPRMergeableState interface {
+	// GetPRMergeableState returns GitHub's computed mergeable_state for the PR,
+	// for example "dirty" when the branch conflicts with its base. The value is
+	// "unknown" while GitHub has not finished computing mergeability.
+	GetPRMergeableState(ctx context.Context, owner, repo string, pr int) (string, error)
+}
+
 type GetPRHeadSHA interface {
 	GetPRHeadSHA(ctx context.Context, owner, repo string, pr int) (string, error)
 }
@@ -422,6 +429,20 @@ func (c GHClient) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr
 	}
 
 	return sha, pr.GetState() == "closed", mergedAt, nil
+}
+
+func (c GHClient) GetPRMergeableState(ctx context.Context, owner, repo string, prNumber int) (string, error) {
+	pr, resp, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
+	if err != nil {
+		return "", fmt.Errorf("failed to query GitHub: %w", err)
+	}
+
+	respErr := c.handleResponseError(resp, "GetPullRequest", owner, repo)
+	if respErr != nil {
+		return "", respErr
+	}
+
+	return pr.GetMergeableState(), nil
 }
 
 func (c GHClient) GetPRHeadSHA(ctx context.Context, owner, repo string, prNumber int) (string, error) {
