@@ -1,0 +1,12 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: [
+    'github>grafana/grafana-renovate-config//presets/base',
+    'github>grafana/grafana-renovate-config//presets/github-actions',
+    'github>grafana/grafana-renovate-config//presets/docker',
+    'github>grafana/grafana-renovate-config//presets/go',
+    'github>grafana/grafana-renovate-config//presets/shared-workflows',
+  ],
+  dependencyDashboard: true,
+}
+
