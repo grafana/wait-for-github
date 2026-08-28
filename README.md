@@ -179,6 +179,10 @@ Default is `30s`.
 
 Ignore failed CI checks and continue waiting for PR to be closed or merged. Only used when `wait-for` is set to `"pr"`. Optional. Default is `false`.
 
+#### `exit-on-conflict`
+
+Exit with code `1` when the PR conflicts with its base branch and cannot be merged without intervention. Useful for automation that supersedes conflicted PRs instead of repairing them, where waiting for the timeout only delays the outcome. Only used when `wait-for` is set to `"pr"`. Optional. Default is `false`.
+
 #### `owner`
 
 GitHub repo owner. Optional. Default is the current repository's owner,
