@@ -51,6 +51,7 @@ type prConfig struct {
 	commitInfoFile  string
 	excludes        []string
 	ignoreFailedCI  bool
+	exitOnConflict  bool
 	actionRetries   int
 	autoMerge       bool
 	autoMergeMethod string
@@ -137,6 +138,7 @@ func parsePRArguments(ctx context.Context, cmd *cli.Command, logger *slog.Logger
 		commitInfoFile:  cmd.String("commit-info-file"),
 		excludes:        excludes,
 		ignoreFailedCI:  cmd.Bool("ignore-failed-ci"),
+		exitOnConflict:  cmd.Bool("exit-on-conflict"),
 		actionRetries:   int(cmd.Int("action-retries")),
 		autoMerge:       cmd.Bool("auto-merge"),
 		autoMergeMethod: cmd.String("auto-merge-method"),
@@ -153,6 +155,7 @@ type commitInfo struct {
 
 type checkMergedAndOverallCI interface {
 	github.CheckPRMerged
+	github.CheckPRMergeableState
 	github.GetPRHeadSHA
 	github.CheckOverallCIStatus
 	github.RerunFailedWorkflows
@@ -164,6 +167,7 @@ type prCheck struct {
 	githubClient checkMergedAndOverallCI
 	logger       *slog.Logger
 	retriesDone  int
+	dirtyPolls   int
 }
 
 func (pr *prCheck) Check(ctx context.Context) error {
@@ -197,6 +201,26 @@ func (pr *prCheck) Check(ctx context.Context) error {
 
 	if closed {
 		return cli.Exit("PR is closed", 1)
+	}
+
+	if pr.exitOnConflict {
+		state, err := pr.githubClient.GetPRMergeableState(ctx, pr.owner, pr.repo, pr.pr)
+		if err != nil {
+			return err
+		}
+
+		// GitHub computes mergeability lazily and can briefly report "dirty"
+		// while a background merge check runs, so require it to be stable
+		// across consecutive polls before giving up.
+		if state == "dirty" {
+			pr.dirtyPolls++
+			if pr.dirtyPolls >= 3 {
+				pr.logger.InfoContext(ctx, "PR conflicts with its base branch, exiting")
+				return cli.Exit("PR cannot be merged: the branch conflicts with its base", 1)
+			}
+		} else {
+			pr.dirtyPolls = 0
+		}
 	}
 
 	if pr.ignoreFailedCI {
@@ -283,6 +307,15 @@ func prCommand(cfg *config) *cli.Command {
 				Value: false,
 				Sources: cli.NewValueSourceChain(
 					cli.EnvVar("GITHUB_IGNORE_FAILED_CI"),
+				),
+			},
+			&cli.BoolFlag{
+				Name: "exit-on-conflict",
+				Usage: "Exit with code 1 when the PR conflicts with its base branch and cannot " +
+					"be merged without intervention. Defaults to false.",
+				Value: false,
+				Sources: cli.NewValueSourceChain(
+					cli.EnvVar("GITHUB_EXIT_ON_CONFLICT"),
 				),
 			},
 			&cli.IntFlag{
