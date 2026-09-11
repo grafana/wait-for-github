@@ -38,11 +38,15 @@ type fakeGithubClientPRCheck struct {
 
 	isPRMergedError           error
 	getPRHeadSHAError         error
+	checkPRMergeableError     error
 	getCIStatusError          error
 	rerunFailedWorkflowsError error
 	mergePRError              error
 
 	CIStatus              github.CIStatus
+	Mergeable             bool
+	MergeableState        string
+	MergeableCalledCount  int
 	RerunCount            int
 	HasRunsInProgress     bool
 	RerunCalledCount      int
@@ -60,6 +64,11 @@ func (fg *fakeGithubClientPRCheck) GetPRHeadSHA(ctx context.Context, owner, repo
 		return fg.HeadSHA, fg.getPRHeadSHAError
 	}
 	return fg.MergedCommit, fg.getPRHeadSHAError
+}
+
+func (fg *fakeGithubClientPRCheck) IsPRMergeable(ctx context.Context, owner, repo string, pr int) (bool, string, error) {
+	fg.MergeableCalledCount++
+	return fg.Mergeable, fg.MergeableState, fg.checkPRMergeableError
 }
 
 func (fg *fakeGithubClientPRCheck) GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (github.CIStatus, error) {
@@ -188,8 +197,9 @@ func TestPRCheck(t *testing.T) {
 		{
 			name: "CI passed with auto-merge squash, merge succeeds",
 			fakeClient: fakeGithubClientPRCheck{
-				HeadSHA:  "abc123",
-				CIStatus: github.CIStatusPassed,
+				HeadSHA:   "abc123",
+				CIStatus:  github.CIStatusPassed,
+				Mergeable: true,
 			},
 			autoMerge:         true,
 			autoMergeMethod:   "squash",
@@ -201,8 +211,9 @@ func TestPRCheck(t *testing.T) {
 		{
 			name: "CI passed with auto-merge rebase, merge succeeds",
 			fakeClient: fakeGithubClientPRCheck{
-				HeadSHA:  "abc123",
-				CIStatus: github.CIStatusPassed,
+				HeadSHA:   "abc123",
+				CIStatus:  github.CIStatusPassed,
+				Mergeable: true,
 			},
 			autoMerge:         true,
 			autoMergeMethod:   "rebase",
@@ -213,8 +224,9 @@ func TestPRCheck(t *testing.T) {
 		{
 			name: "CI passed with auto-merge, default method",
 			fakeClient: fakeGithubClientPRCheck{
-				HeadSHA:  "abc123",
-				CIStatus: github.CIStatusPassed,
+				HeadSHA:   "abc123",
+				CIStatus:  github.CIStatusPassed,
+				Mergeable: true,
 			},
 			autoMerge:         true,
 			autoMergeMethod:   "merge",
@@ -227,6 +239,7 @@ func TestPRCheck(t *testing.T) {
 			fakeClient: fakeGithubClientPRCheck{
 				HeadSHA:      "abc123",
 				CIStatus:     github.CIStatusPassed,
+				Mergeable:    true,
 				mergePRError: fmt.Errorf("merge failed"),
 			},
 			autoMerge:         true,
@@ -235,6 +248,26 @@ func TestPRCheck(t *testing.T) {
 			expectMergeSHA:    "abc123",
 			expectMergeMethod: "squash",
 			// No exit code - continues polling and will retry
+		},
+		{
+			name: "CI passed with auto-merge, PR is blocked",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:        "abc123",
+				CIStatus:       github.CIStatusPassed,
+				MergeableState: "blocked",
+			},
+			autoMerge:       true,
+			autoMergeMethod: "merge",
+		},
+		{
+			name: "CI passed with auto-merge, mergeability check fails",
+			fakeClient: fakeGithubClientPRCheck{
+				HeadSHA:               "abc123",
+				CIStatus:              github.CIStatusPassed,
+				checkPRMergeableError: fmt.Errorf("mergeability check failed"),
+			},
+			autoMerge:       true,
+			autoMergeMethod: "merge",
 		},
 		{
 			name: "CI pending with auto-merge, no merge attempt",
