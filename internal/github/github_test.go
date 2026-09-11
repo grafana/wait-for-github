@@ -343,6 +343,63 @@ func TestIsPRMergedOrClosed_Error(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestIsPRMergeable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name              string
+		githubMergeable   bool
+		mergeableState    string
+		expectedMergeable bool
+	}{
+		{
+			name:              "clean",
+			githubMergeable:   true,
+			mergeableState:    "clean",
+			expectedMergeable: true,
+		},
+		{
+			name:            "blocked by branch protection",
+			githubMergeable: true,
+			mergeableState:  "blocked",
+		},
+		{
+			name:            "merge conflict",
+			githubMergeable: false,
+			mergeableState:  "dirty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockedHTTPClient := mock.NewMockedHTTPClient(
+				mock.WithRequestMatch(
+					mock.GetReposPullsByOwnerByRepoByPullNumber,
+					github.PullRequest{
+						Mergeable:      &tt.githubMergeable,
+						MergeableState: &tt.mergeableState,
+					},
+				),
+			)
+
+			ghClient := newClientFromMock(t, mockedHTTPClient, "")
+			mergeable, state, err := ghClient.IsPRMergeable(context.Background(), "owner", "repo", 1)
+
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedMergeable, mergeable)
+			require.Equal(t, tt.mergeableState, state)
+		})
+	}
+}
+
+func TestIsPRMergeable_Error(t *testing.T) {
+	t.Parallel()
+
+	ghClient := newErrorReturningClient(t)
+	_, _, err := ghClient.IsPRMergeable(context.Background(), "owner", "repo", 1)
+	require.Error(t, err)
+}
+
 func TestGetCIStatus(t *testing.T) {
 	tests := []struct {
 		name           string
