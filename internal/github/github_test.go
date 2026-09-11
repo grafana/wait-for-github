@@ -376,8 +376,8 @@ func TestIsPRMergeable(t *testing.T) {
 				mock.WithRequestMatch(
 					mock.GetReposPullsByOwnerByRepoByPullNumber,
 					github.PullRequest{
-						Mergeable:      github.Bool(tt.githubMergeable),
-						MergeableState: github.String(tt.mergeableState),
+						Mergeable:      &tt.githubMergeable,
+						MergeableState: &tt.mergeableState,
 					},
 				),
 			)
