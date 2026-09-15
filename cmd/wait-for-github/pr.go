@@ -154,6 +154,7 @@ type commitInfo struct {
 type checkMergedAndOverallCI interface {
 	github.CheckPRMerged
 	github.GetPRHeadSHA
+	github.CheckPRMergeable
 	github.CheckOverallCIStatus
 	github.RerunFailedWorkflows
 	github.MergePR
@@ -227,6 +228,15 @@ func (pr *prCheck) Check(ctx context.Context) error {
 	}
 
 	if pr.autoMerge && status == github.CIStatusPassed {
+		mergeable, mergeableState, err := pr.githubClient.IsPRMergeable(ctx, pr.owner, pr.repo, pr.pr)
+		if err != nil {
+			return err
+		}
+		if !mergeable {
+			pr.logger.InfoContext(ctx, "CI passed but PR is not mergeable yet", "mergeable_state", mergeableState)
+			return nil
+		}
+
 		pr.logger.InfoContext(ctx, "CI passed and auto-merge is enabled, merging PR", "method", pr.autoMergeMethod)
 		// Pass sha to prevent merging a different commit than the one CI ran on.
 		// Merge failures (conflicts, branch protection) are retried on each poll;

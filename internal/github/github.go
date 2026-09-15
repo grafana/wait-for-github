@@ -53,6 +53,10 @@ type GetPRHeadSHA interface {
 	GetPRHeadSHA(ctx context.Context, owner, repo string, pr int) (string, error)
 }
 
+type CheckPRMergeable interface {
+	IsPRMergeable(ctx context.Context, owner, repo string, pr int) (bool, string, error)
+}
+
 type CheckOverallCIStatus interface {
 	GetCIStatus(ctx context.Context, owner, repo string, commitHash string, excludes []string) (CIStatus, error)
 }
@@ -436,6 +440,20 @@ func (c GHClient) GetPRHeadSHA(ctx context.Context, owner, repo string, prNumber
 	}
 
 	return pr.GetHead().GetSHA(), nil
+}
+
+func (c GHClient) IsPRMergeable(ctx context.Context, owner, repo string, prNumber int) (bool, string, error) {
+	pr, resp, err := c.client.PullRequests.Get(ctx, owner, repo, prNumber)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to query GitHub for PR mergeability: %w", err)
+	}
+
+	if respErr := c.handleResponseError(resp, "GetPullRequest", owner, repo); respErr != nil {
+		return false, "", respErr
+	}
+
+	mergeableState := pr.GetMergeableState()
+	return pr.GetMergeable() && mergeableState == "clean", mergeableState, nil
 }
 
 func (c GHClient) MergePR(ctx context.Context, owner, repo string, prNumber int, sha, mergeMethod string) error {
