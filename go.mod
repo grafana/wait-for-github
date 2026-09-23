@@ -15,7 +15,7 @@ require (
 	github.com/olekukonko/tablewriter v1.1.4
 	github.com/shurcooL/graphql v0.0.0-20240915155400-7ee5256398cf
 	github.com/stretchr/testify v1.12.1
-	github.com/urfave/cli/v3 v3.11.0
+	github.com/urfave/cli/v3 v3.13.0
 	github.com/willabides/actionslog v0.5.1
 	golang.org/x/oauth2 v0.37.0
 	golang.org/x/term v0.46.0
