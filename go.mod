@@ -10,7 +10,7 @@ require (
 	github.com/google/go-github/v89 v89.0.0
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 	github.com/hashicorp/go-retryablehttp v0.7.8
-	github.com/lmittmann/tint v1.1.3
+	github.com/lmittmann/tint v1.2.0
 	github.com/migueleliasweb/go-github-mock v1.5.0
 	github.com/olekukonko/tablewriter v1.1.4
 	github.com/shurcooL/graphql v0.0.0-20240915155400-7ee5256398cf
