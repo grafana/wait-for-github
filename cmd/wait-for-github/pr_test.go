@@ -43,6 +43,9 @@ type fakeGithubClientPRCheck struct {
 	rerunFailedWorkflowsError error
 	mergePRError              error
 
+	MergeableState         string
+	getMergeableStateError error
+
 	CIStatus              github.CIStatus
 	Mergeable             bool
 	MergeableState        string
@@ -57,6 +60,10 @@ type fakeGithubClientPRCheck struct {
 
 func (fg *fakeGithubClientPRCheck) IsPRMergedOrClosed(ctx context.Context, owner, repo string, pr int) (string, bool, int64, error) {
 	return fg.MergedCommit, fg.Closed, fg.MergedAt, fg.isPRMergedError
+}
+
+func (fg *fakeGithubClientPRCheck) GetPRMergeableState(ctx context.Context, owner, repo string, pr int) (string, error) {
+	return fg.MergeableState, fg.getMergeableStateError
 }
 
 func (fg *fakeGithubClientPRCheck) GetPRHeadSHA(ctx context.Context, owner, repo string, pr int) (string, error) {
@@ -593,5 +600,48 @@ func TestParsePRArguments(t *testing.T) {
 			finalArgs = append(finalArgs, tt.args...)
 			_ = rootCmd.Run(ctx, finalArgs)
 		})
+	}
+}
+
+func TestPRCheckExitOnConflict(t *testing.T) {
+	t.Parallel()
+
+	fakeClient := &fakeGithubClientPRCheck{
+		MergeableState: "dirty",
+		CIStatus:       github.CIStatusPending,
+	}
+
+	pr := &prCheck{
+		prConfig: prConfig{
+			owner:          "owner",
+			repo:           "repo",
+			pr:             1,
+			exitOnConflict: true,
+			ignoreFailedCI: true,
+		},
+		githubClient: fakeClient,
+		logger:       testLogger,
+	}
+
+	// The first two dirty observations keep waiting, the third exits.
+	for i := 0; i < 2; i++ {
+		if err := pr.Check(context.Background()); err != nil {
+			t.Fatalf("poll %d: want continue, got %v", i+1, err)
+		}
+	}
+	err := pr.Check(context.Background())
+	exitErr, ok := err.(cli.ExitCoder)
+	if !ok || exitErr.ExitCode() != 1 {
+		t.Fatalf("want exit code 1 after three dirty polls, got %v", err)
+	}
+
+	// A clean observation resets the counter.
+	pr.dirtyPolls = 2
+	fakeClient.MergeableState = "clean"
+	if err := pr.Check(context.Background()); err != nil {
+		t.Fatalf("clean poll: want continue, got %v", err)
+	}
+	if pr.dirtyPolls != 0 {
+		t.Fatalf("want dirtyPolls reset to 0, got %d", pr.dirtyPolls)
 	}
 }
