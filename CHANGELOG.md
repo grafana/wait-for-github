@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.1](https://github.com/grafana/wait-for-github/compare/v1.7.0...v1.7.1) (2026-10-08)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/olekukonko/tablewriter to v1.1.5 ([#637](https://github.com/grafana/wait-for-github/issues/637)) ([fd70bc7](https://github.com/grafana/wait-for-github/commit/fd70bc72f75e9ee03ffe9a7ecffbdbcab0168a0c))
+* **deps:** update module github.com/urfave/cli/v3 to v3.14.0 ([#643](https://github.com/grafana/wait-for-github/issues/643)) ([b67ba1e](https://github.com/grafana/wait-for-github/commit/b67ba1ef79307ddb9b042ad6aa2e845695a77e36))
+* **pr:** wait until auto-merge is allowed ([#630](https://github.com/grafana/wait-for-github/issues/630)) ([adc49b7](https://github.com/grafana/wait-for-github/commit/adc49b7868f5a0b6150512d438e4844e530562c9))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update go toolchain directive to v1.27.1 ([#609](https://github.com/grafana/wait-for-github/issues/609)) ([04c6a8f](https://github.com/grafana/wait-for-github/commit/04c6a8f907f0623ff8ce5521189bbc564cb8dcdc))
+* **deps:** update golang:1.27.1-alpine3.23 docker digest to 0908ac9 ([#640](https://github.com/grafana/wait-for-github/issues/640)) ([59a965e](https://github.com/grafana/wait-for-github/commit/59a965efe39ab05fc7634da2ea1b22dcc4f75f8c))
+* **deps:** update module github.com/goccy/go-json to v0.11.2 ([#641](https://github.com/grafana/wait-for-github/issues/641)) ([f5e8e12](https://github.com/grafana/wait-for-github/commit/f5e8e12448f597fb63a5c6cd4bad79cd6cbfe800))
+
 ## [1.7.0](https://github.com/grafana/wait-for-github/compare/v1.6.3...v1.7.0) (2026-10-01)
 
 
