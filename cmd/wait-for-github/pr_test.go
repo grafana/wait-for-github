@@ -48,7 +48,6 @@ type fakeGithubClientPRCheck struct {
 
 	CIStatus              github.CIStatus
 	Mergeable             bool
-	MergeableState        string
 	MergeableCalledCount  int
 	RerunCount            int
 	HasRunsInProgress     bool
