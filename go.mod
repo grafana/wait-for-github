@@ -2,7 +2,7 @@ module github.com/grafana/wait-for-github
 
 go 1.26.2
 
-toolchain go1.27.1
+toolchain go1.27.2
 
 require (
 	github.com/bradleyfalzon/ghinstallation/v2 v2.19.0
@@ -18,7 +18,7 @@ require (
 	github.com/urfave/cli/v3 v3.14.0
 	github.com/willabides/actionslog v0.5.1
 	golang.org/x/oauth2 v0.37.0
-	golang.org/x/term v0.46.0
+	golang.org/x/term v0.47.0
 	golang.org/x/text v0.42.0
 )
 
@@ -42,6 +42,6 @@ require (
 	github.com/olekukonko/ll v0.1.8 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20260820142414-ca536658362e // indirect
-	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/time v0.16.0 // indirect
 )
