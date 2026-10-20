@@ -28,7 +28,7 @@ import (
 
 	"github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/fatih/color"
-	"github.com/google/go-github/v89/github"
+	"github.com/google/go-github/v93/github"
 	"github.com/grafana/wait-for-github/internal/logging"
 	"github.com/gregjones/httpcache"
 	"github.com/hashicorp/go-retryablehttp"
@@ -658,9 +658,9 @@ func (c GHClient) getOneStatus(ctx context.Context, owner, repoName, ref, check 
 	}
 
 	opt := &github.ListCheckRunsOptions{
-		CheckName:   github.Ptr(check),
+		CheckName:   new(check),
 		ListOptions: listOptions,
-		Filter:      github.Ptr("latest"),
+		Filter:      new("latest"),
 	}
 
 	var checkRuns []*github.CheckRun
