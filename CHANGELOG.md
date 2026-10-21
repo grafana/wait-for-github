@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/grafana/wait-for-github/compare/v1.7.1...v1.7.2) (2026-10-21)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** explicitly update ca-certificates in build stage ([#661](https://github.com/grafana/wait-for-github/issues/661)) ([03e6291](https://github.com/grafana/wait-for-github/commit/03e62910f3a61d7a2115effc419a656fe3a71c68))
+
 ## [1.7.1](https://github.com/grafana/wait-for-github/compare/v1.7.0...v1.7.1) (2026-10-21)
 
 
