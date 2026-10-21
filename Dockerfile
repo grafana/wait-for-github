@@ -2,8 +2,11 @@ FROM --platform=${BUILDPLATFORM} golang:1.27.3-alpine3.23@sha256:895e5feab11a4b3
 
 # Dependencies required to run the race detector
 RUN \
-  --mount=type=cache,target=/var/cache/apk \
+  --mount=type=cache,target=/var/cache/apk <<EOF
   apk add --no-cache gcc musl-dev
+  apk add --no-cache 'ca-certificates>=20261020-r0' \
+    && update-ca-certificates
+EOF
 
 WORKDIR /go/src/app
 
