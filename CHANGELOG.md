@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.7.1](https://github.com/grafana/wait-for-github/compare/v1.7.0...v1.7.1) (2026-10-21)
+
+
+### 🐛 Bug Fixes
+
+* **deps:** update module github.com/google/go-github/v89 to v93 ([#657](https://github.com/grafana/wait-for-github/issues/657)) ([2a8e463](https://github.com/grafana/wait-for-github/commit/2a8e463d07f19506f85fdbb40d417020f679a2d9))
+* **deps:** update module github.com/lmittmann/tint to v1.2.1 ([#588](https://github.com/grafana/wait-for-github/issues/588)) ([22a34ed](https://github.com/grafana/wait-for-github/commit/22a34edd01136cfb5a590542e507d5a015f27131))
+* **deps:** update module github.com/olekukonko/tablewriter to v1.1.5 ([#637](https://github.com/grafana/wait-for-github/issues/637)) ([fd70bc7](https://github.com/grafana/wait-for-github/commit/fd70bc72f75e9ee03ffe9a7ecffbdbcab0168a0c))
+* **deps:** update module github.com/urfave/cli/v3 to v3.14.0 ([#643](https://github.com/grafana/wait-for-github/issues/643)) ([b67ba1e](https://github.com/grafana/wait-for-github/commit/b67ba1ef79307ddb9b042ad6aa2e845695a77e36))
+* **deps:** update module golang.org/x/term to v0.47.0 ([#652](https://github.com/grafana/wait-for-github/issues/652)) ([55d20ce](https://github.com/grafana/wait-for-github/commit/55d20ce8f60238c6a536f9a54c0f7468dbc958e1))
+* **deps:** update module golang.org/x/text to v0.43.0 ([#653](https://github.com/grafana/wait-for-github/issues/653)) ([0b91ed4](https://github.com/grafana/wait-for-github/commit/0b91ed45fe8e11a8a43bcc2100126df4bfd3cedb))
+* **pr:** wait until auto-merge is allowed ([#630](https://github.com/grafana/wait-for-github/issues/630)) ([adc49b7](https://github.com/grafana/wait-for-github/commit/adc49b7868f5a0b6150512d438e4844e530562c9))
+* **security/unknown/:** update go toolchain directive to v1.27.2 [security] ([#645](https://github.com/grafana/wait-for-github/issues/645)) ([6c6c3a9](https://github.com/grafana/wait-for-github/commit/6c6c3a9bc56def8b42e37cce28ab5aeda5e74e23))
+* **security/unknown/:** update go toolchain directive to v1.27.3 [security] ([#658](https://github.com/grafana/wait-for-github/issues/658)) ([5495cb2](https://github.com/grafana/wait-for-github/commit/5495cb2d94081445cb7abc216e7f9d80995a4a94))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update github/codeql-action action to v4.39.0 ([#650](https://github.com/grafana/wait-for-github/issues/650)) ([058be94](https://github.com/grafana/wait-for-github/commit/058be94a908b1387c24784900a1f72bcb17a27c5))
+* **deps:** update go toolchain directive to v1.27.1 ([#609](https://github.com/grafana/wait-for-github/issues/609)) ([04c6a8f](https://github.com/grafana/wait-for-github/commit/04c6a8f907f0623ff8ce5521189bbc564cb8dcdc))
+* **deps:** update golang docker tag to v1.27.2 ([#651](https://github.com/grafana/wait-for-github/issues/651)) ([c3b8e10](https://github.com/grafana/wait-for-github/commit/c3b8e1080377f34404ebef22a3dbbec109b941bc))
+* **deps:** update golang:1.27.1-alpine3.23 docker digest to 0908ac9 ([#640](https://github.com/grafana/wait-for-github/issues/640)) ([59a965e](https://github.com/grafana/wait-for-github/commit/59a965efe39ab05fc7634da2ea1b22dcc4f75f8c))
+* **deps:** update golang.org/x/exp digest to f0251eb ([#621](https://github.com/grafana/wait-for-github/issues/621)) ([adf1808](https://github.com/grafana/wait-for-github/commit/adf18089d1a29838d0af163857aea2285da0a0ad))
+* **deps:** update grafana/shared-workflows digest to cdfa828 ([#636](https://github.com/grafana/wait-for-github/issues/636)) ([37c211f](https://github.com/grafana/wait-for-github/commit/37c211fb3287c6fd3787489a2246cab670b5f1d7))
+* **deps:** update module github.com/goccy/go-json to v0.11.2 ([#641](https://github.com/grafana/wait-for-github/issues/641)) ([f5e8e12](https://github.com/grafana/wait-for-github/commit/f5e8e12448f597fb63a5c6cd4bad79cd6cbfe800))
+* **deps:** update module github.com/mattn/go-colorable to v0.1.16 ([#646](https://github.com/grafana/wait-for-github/issues/646)) ([1734528](https://github.com/grafana/wait-for-github/commit/1734528e072e9c8fc48ca4659b06665c1711dbeb))
+* **deps:** update module github.com/mattn/go-runewidth to v0.0.31 ([#649](https://github.com/grafana/wait-for-github/issues/649)) ([3e4b15c](https://github.com/grafana/wait-for-github/commit/3e4b15c57a059ce185be84b2660f450af14b72f0))
+* **deps:** update module github.com/olekukonko/ll to v0.1.9 ([#647](https://github.com/grafana/wait-for-github/issues/647)) ([6c35d28](https://github.com/grafana/wait-for-github/commit/6c35d28350047dd76f1db3902fcbafd4f6903735))
+* update Dockerfile to golang:1.27.3 ([#659](https://github.com/grafana/wait-for-github/issues/659)) ([f855461](https://github.com/grafana/wait-for-github/commit/f85546154ad0ac7b263a6d449afca7e22162141e))
+* update to distroless:debian13 ([#660](https://github.com/grafana/wait-for-github/issues/660)) ([f11d324](https://github.com/grafana/wait-for-github/commit/f11d32456c354e5738964a671080fd75cc223436))
+
 ## [1.7.0](https://github.com/grafana/wait-for-github/compare/v1.6.3...v1.7.0) (2026-10-01)
 
 
