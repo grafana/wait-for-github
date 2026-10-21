@@ -35,7 +35,7 @@ RUN \
   -o /go/bin/app \
   github.com/grafana/wait-for-github/cmd/wait-for-github
 
-FROM gcr.io/distroless/static-debian12@sha256:6447365a6337c3732f412d1b74357b30a633831955b2bc45552b0086be907687
+FROM gcr.io/distroless/static-debian13@sha256:9e0130bec991f471279b70f1630ada11e46dad439ef2949544f96001225329fb
 
 COPY --from=builder /go/bin/app /go/bin/app
 
