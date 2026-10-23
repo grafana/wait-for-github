@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:1.27.3-alpine3.23@sha256:895e5feab11a4b3774d24ee3c9579028456b82ad37f42a9eb6f82adaf776a201 AS builder
+FROM --platform=${BUILDPLATFORM} golang:1.27.3-alpine3.23@sha256:754d5200fc3edae76d3b6598a9a3fac7e74981ee6a5413ab955025f185753ef2 AS builder
 
 # Dependencies required to run the race detector
 RUN \
@@ -38,7 +38,7 @@ RUN \
   -o /go/bin/app \
   github.com/grafana/wait-for-github/cmd/wait-for-github
 
-FROM gcr.io/distroless/static-debian13@sha256:9e0130bec991f471279b70f1630ada11e46dad439ef2949544f96001225329fb
+FROM gcr.io/distroless/static-debian13@sha256:034df5c1737e8241f6ed6423a12e720ee0f6d6f088609ee172f98f6f2166ef5d
 
 COPY --from=builder /go/bin/app /go/bin/app
 
