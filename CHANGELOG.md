@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.3](https://github.com/grafana/wait-for-github/compare/v1.7.2...v1.7.3) (2026-10-23)
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update ca trust base images [security] ([#663](https://github.com/grafana/wait-for-github/issues/663)) ([1748ff8](https://github.com/grafana/wait-for-github/commit/1748ff89b886fe501b28b36667e480dec6e7a2f8))
+
 ## [1.7.2](https://github.com/grafana/wait-for-github/compare/v1.7.1...v1.7.2) (2026-10-21)
 
 
