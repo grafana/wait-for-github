@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.4](https://github.com/grafana/wait-for-github/compare/v1.7.3...v1.7.4) (2026-10-28)
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update ca trust base images [security] ([#665](https://github.com/grafana/wait-for-github/issues/665)) ([eb873eb](https://github.com/grafana/wait-for-github/commit/eb873ebb35e8c1c46d908e269c8623721b4b1ba9))
+* **deps:** update github/codeql-action action to v4.39.1 ([#666](https://github.com/grafana/wait-for-github/issues/666)) ([d3d156a](https://github.com/grafana/wait-for-github/commit/d3d156a5948e6ce39bba526efaf1bfc3762e38de))
+
 ## [1.7.3](https://github.com/grafana/wait-for-github/compare/v1.7.2...v1.7.3) (2026-10-23)
 
 
