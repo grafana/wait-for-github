@@ -181,15 +181,23 @@ type WorkflowInfo struct {
 	Name string
 }
 
-type AppInfo struct {
-	Name string
+type WorkflowRunInfo struct {
+	Workflow WorkflowInfo
 }
 
 type CheckSuiteInfo struct {
-	App         AppInfo
-	WorkflowRun struct {
-		Workflow WorkflowInfo
-	}
+	// WorkflowRun is nil for check suites not created by GitHub Actions.
+	WorkflowRun *WorkflowRunInfo
+}
+
+// checkRunState holds the check run fields needed to compute the overall CI
+// status. It deliberately selects nothing from checkSuite: objects reachable
+// from there can belong to the organization that owns a third-party app, and
+// if that organization has an IP allow list GitHub fails the whole query.
+type checkRunState struct {
+	Name       string
+	Status     string
+	Conclusion string
 }
 
 type CheckRun struct {
@@ -201,7 +209,7 @@ type CheckRun struct {
 
 func (c CheckRun) String() string {
 	boldName := bold(c.Name)
-	if c.CheckSuite.WorkflowRun.Workflow.Name == "" {
+	if c.CheckSuite.WorkflowRun == nil || c.CheckSuite.WorkflowRun.Workflow.Name == "" {
 		return boldName
 	}
 
@@ -229,7 +237,7 @@ func (c CheckRun) Outcome() CIStatus {
 }
 
 func (c CheckRun) Type() string {
-	if c.CheckSuite.App.Name == "GitHub Actions" {
+	if c.CheckSuite.WorkflowRun != nil {
 		return "Action"
 	}
 
@@ -262,22 +270,24 @@ func (s StatusContext) Type() string {
 	return "Status"
 }
 
-type RollupContextNode struct {
+// RollupContextNode is generic over the check run type so that each caller
+// only queries the check run fields it uses.
+type RollupContextNode[C any] struct {
 	Typename      string        `graphql:"__typename"`
-	CheckRun      CheckRun      `graphql:"... on CheckRun"`
+	CheckRun      C             `graphql:"... on CheckRun"`
 	StatusContext StatusContext `graphql:"... on StatusContext"`
 }
 
-type RollupContexts struct {
+type RollupContexts[C any] struct {
 	CheckRunCount      int
 	StatusContextCount int
-	Nodes              []RollupContextNode
+	Nodes              []RollupContextNode[C]
 	PageInfo           PageInfo
 }
 
-type StatusCheckRollup struct {
+type StatusCheckRollup[C any] struct {
 	State    string
-	Contexts RollupContexts `graphql:"contexts(first: 100, after: $cursor)"`
+	Contexts RollupContexts[C] `graphql:"contexts(first: 100, after: $cursor)"`
 }
 
 // handleResponseError processes GitHub API response errors
@@ -516,12 +526,12 @@ func (c GHClient) MergePR(ctx context.Context, owner, repo string, prNumber int,
 	return nil
 }
 
-func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref string) (*StatusCheckRollup, []RollupContextNode, error) {
+func getStatusCheckRollup[C any](ctx context.Context, c GHClient, owner, repoName, ref string) (*StatusCheckRollup[C], []RollupContextNode[C], error) {
 	var query struct {
 		Repository struct {
 			Object struct {
 				Commit struct {
-					StatusCheckRollup *StatusCheckRollup `graphql:"statusCheckRollup"`
+					StatusCheckRollup *StatusCheckRollup[C] `graphql:"statusCheckRollup"`
 				} `graphql:"... on Commit"`
 			} `graphql:"object(expression: $ref)"`
 		} `graphql:"repository(owner: $owner, name: $repository)"`
@@ -534,10 +544,10 @@ func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref
 		"cursor":     (*graphql.String)(nil),
 	}
 
-	var allNodes []RollupContextNode
+	var allNodes []RollupContextNode[C]
 	retried := false
 
-	var rollup *StatusCheckRollup
+	var rollup *StatusCheckRollup[C]
 
 	for {
 		if err := c.graphQLClient.Query(ctx, &query, vars); err != nil {
@@ -572,13 +582,13 @@ func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref
 	return rollup, allNodes, nil
 }
 
-func hasChecksOrStatuses(rollup *StatusCheckRollup) bool {
+func hasChecksOrStatuses[C any](rollup *StatusCheckRollup[C]) bool {
 	return rollup.Contexts.CheckRunCount > 0 || rollup.Contexts.StatusContextCount > 0
 }
 
 func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, excludes []string) (CIStatus, error) {
 	logger := c.logger.With(logging.OwnerAttr(owner), logging.RepoAttr(repoName), logging.RefAttr(ref))
-	rollup, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
+	rollup, nodes, err := getStatusCheckRollup[checkRunState](ctx, c, owner, repoName, ref)
 	if err != nil {
 		return CIStatusUnknown, err
 	}
@@ -794,7 +804,7 @@ func (c GHClient) GetCIStatusForChecks(ctx context.Context, owner, repoName stri
 }
 
 func (c GHClient) GetDetailedCIStatus(ctx context.Context, owner, repoName, ref string) ([]CICheckStatus, error) {
-	_, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
+	_, nodes, err := getStatusCheckRollup[CheckRun](ctx, c, owner, repoName, ref)
 	if err != nil {
 		return nil, err
 	}

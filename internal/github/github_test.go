@@ -18,13 +18,16 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -968,6 +971,222 @@ func TestGetCIStatus_Error(t *testing.T) {
 	ghClient := newErrorReturningClient(t)
 	_, err := ghClient.GetCIStatus(ctx, "owner", "repo", "abcdef12345", make([]string, 0))
 	require.Error(t, err)
+}
+
+// TestStatusCheckRollup_IPAllowListedApp covers a commit with a check run from
+// a third-party GitHub App whose owning organization has an IP allow list.
+// GitHub answers queries that select that check suite's app with partial data
+// and a FORBIDDEN error, which the GraphQL client turns into a failed query.
+func TestStatusCheckRollup_IPAllowListedApp(t *testing.T) {
+	t.Parallel()
+
+	const forbiddenResponse = `
+	{
+		"data": {
+			"repository": {
+				"object": {
+					"statusCheckRollup": {
+						"state": "PENDING",
+						"contexts": {
+							"checkRunCount": 2,
+							"statusContextCount": 1,
+							"nodes": [
+								{
+									"__typename": "CheckRun",
+									"name": "build",
+									"status": "COMPLETED",
+									"conclusion": "SUCCESS",
+									"checkSuite": {
+										"app": { "name": "GitHub Actions" },
+										"workflowRun": { "workflow": { "name": "CI" } }
+									}
+								},
+								{
+									"__typename": "CheckRun",
+									"name": "Cursor Bugbot",
+									"status": "IN_PROGRESS",
+									"conclusion": null,
+									"checkSuite": {
+										"app": null,
+										"workflowRun": null
+									}
+								},
+								{
+									"__typename": "StatusContext",
+									"context": "deploy",
+									"state": "SUCCESS"
+								}
+							],
+							"pageInfo": { "hasNextPage": false, "endCursor": null }
+						}
+					}
+				}
+			}
+		},
+		"errors": [
+			{
+				"type": "FORBIDDEN",
+				"path": ["repository", "object", "statusCheckRollup", "contexts", "nodes", 1, "checkSuite", "app"],
+				"extensions": { "saml_failure": false },
+				"locations": [{ "line": 1, "column": 1 }],
+				"message": "Although you appear to have the correct authorization credentials, the cursor organization has an IP allow list enabled, and your IP address is not permitted to access this resource."
+			}
+		]
+	}
+	`
+
+	const statusResponse = `
+	{
+		"data": {
+			"repository": {
+				"object": {
+					"statusCheckRollup": {
+						"state": "PENDING",
+						"contexts": {
+							"checkRunCount": 2,
+							"statusContextCount": 1,
+							"nodes": [
+								{
+									"__typename": "CheckRun",
+									"name": "build",
+									"status": "COMPLETED",
+									"conclusion": "SUCCESS"
+								},
+								{
+									"__typename": "CheckRun",
+									"name": "Cursor Bugbot",
+									"status": "IN_PROGRESS",
+									"conclusion": null
+								},
+								{
+									"__typename": "StatusContext",
+									"context": "deploy",
+									"state": "SUCCESS"
+								}
+							],
+							"pageInfo": { "hasNextPage": false, "endCursor": null }
+						}
+					}
+				}
+			}
+		}
+	}
+	`
+
+	const detailedResponse = `
+	{
+		"data": {
+			"repository": {
+				"object": {
+					"statusCheckRollup": {
+						"state": "PENDING",
+						"contexts": {
+							"checkRunCount": 2,
+							"statusContextCount": 1,
+							"nodes": [
+								{
+									"__typename": "CheckRun",
+									"name": "build",
+									"status": "COMPLETED",
+									"conclusion": "SUCCESS",
+									"checkSuite": {
+										"workflowRun": { "workflow": { "name": "CI" } }
+									}
+								},
+								{
+									"__typename": "CheckRun",
+									"name": "Cursor Bugbot",
+									"status": "IN_PROGRESS",
+									"conclusion": null,
+									"checkSuite": {
+										"workflowRun": null
+									}
+								},
+								{
+									"__typename": "StatusContext",
+									"context": "deploy",
+									"state": "SUCCESS"
+								}
+							],
+							"pageInfo": { "hasNextPage": false, "endCursor": null }
+						}
+					}
+				}
+			}
+		}
+	}
+	`
+
+	appField := regexp.MustCompile(`\bapp\b`)
+
+	var (
+		mu      sync.Mutex
+		queries []string
+	)
+
+	mockServer := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var body struct {
+				Query string `json:"query"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			mu.Lock()
+			queries = append(queries, body.Query)
+			mu.Unlock()
+
+			w.Header().Set("Content-Type", "application/json")
+			switch {
+			case appField.MatchString(body.Query):
+				_, _ = w.Write([]byte(forbiddenResponse))
+			case strings.Contains(body.Query, "checkSuite"):
+				_, _ = w.Write([]byte(detailedResponse))
+			default:
+				_, _ = w.Write([]byte(statusResponse))
+			}
+		}))
+	defer mockServer.Close()
+
+	ghClient := GHClient{
+		graphQLClient:      graphql.NewClient(mockServer.URL, http.DefaultClient),
+		pendingRecheckTime: 1 * time.Millisecond,
+		logger:             testLogger,
+	}
+
+	status, err := ghClient.GetCIStatus(context.Background(), "owner", "repo", "abcdef12345", nil)
+	require.NoError(t, err)
+	require.Equal(t, CIStatusPending, status)
+
+	checks, err := ghClient.GetDetailedCIStatus(context.Background(), "owner", "repo", "abcdef12345")
+	require.NoError(t, err)
+
+	build := CheckRun{
+		Name:       "build",
+		Status:     "COMPLETED",
+		Conclusion: "SUCCESS",
+		CheckSuite: CheckSuiteInfo{
+			WorkflowRun: &WorkflowRunInfo{Workflow: WorkflowInfo{Name: "CI"}},
+		},
+	}
+	bugbot := CheckRun{
+		Name:   "Cursor Bugbot",
+		Status: "IN_PROGRESS",
+	}
+	require.ElementsMatch(t, []CICheckStatus{
+		build,
+		bugbot,
+		StatusContext{Context: "deploy", State: "SUCCESS"},
+	}, checks)
+	require.Equal(t, "Action", build.Type())
+	require.Equal(t, "Check Run", bugbot.Type())
+
+	mu.Lock()
+	defer mu.Unlock()
+	require.Len(t, queries, 2)
+	require.NotContains(t, queries[0], "checkSuite", "GetCIStatus must not query check suites")
 }
 
 func TestGetCIStatusForChecks(t *testing.T) {
