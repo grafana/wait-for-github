@@ -181,12 +181,8 @@ type WorkflowInfo struct {
 	Name string
 }
 
-type AppInfo struct {
-	Name string
-}
-
+// app is not queried, as an attempt to work around https://github.com/grafana/wait-for-github/issues/668
 type CheckSuiteInfo struct {
-	App         AppInfo
 	WorkflowRun struct {
 		Workflow WorkflowInfo
 	}
@@ -229,7 +225,7 @@ func (c CheckRun) Outcome() CIStatus {
 }
 
 func (c CheckRun) Type() string {
-	if c.CheckSuite.App.Name == "GitHub Actions" {
+	if c.CheckSuite.WorkflowRun.Workflow.Name != "" {
 		return "Action"
 	}
 

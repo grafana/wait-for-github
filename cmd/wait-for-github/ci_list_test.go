@@ -181,9 +181,6 @@ func TestListChecks_TableRendering(t *testing.T) {
 					Status:     "COMPLETED",
 					Conclusion: "SUCCESS",
 					CheckSuite: github.CheckSuiteInfo{
-						App: github.AppInfo{
-							Name: "",
-						},
 						WorkflowRun: struct {
 							Workflow github.WorkflowInfo
 						}{
@@ -205,7 +202,7 @@ func TestListChecks_TableRendering(t *testing.T) {
 			},
 			wantHeaders: []string{"Name", "Type", "Status"},
 			wantRows: [][]string{
-				{"CI / build", "Check Run", "Passed"},
+				{"CI / build", "Action", "Passed"},
 				{"deploy", "Status", "Unknown"},
 				{"test", "Check Run", "Skipped"},
 			},
@@ -283,9 +280,6 @@ func TestListChecksColour(t *testing.T) {
 			Status:     "COMPLETED",
 			Conclusion: "SUCCESS",
 			CheckSuite: github.CheckSuiteInfo{
-				App: github.AppInfo{
-					Name: "",
-				},
 				WorkflowRun: struct {
 					Workflow github.WorkflowInfo
 				}{
@@ -324,7 +318,7 @@ func TestListChecksColour(t *testing.T) {
 	require.Equal(t, len(checks), len(table.rows))
 
 	expectedRows := [][]string{
-		{"CI / \x1b[1mbuild\x1b[22m", "Check Run", "\x1b[32mPassed\x1b[0m"},
+		{"CI / \x1b[1mbuild\x1b[22m", "Action", "\x1b[32mPassed\x1b[0m"},
 		{"\x1b[1mdeploy\x1b[22m", "Status", "\x1b[37mUnknown\x1b[0m"},
 		{"\x1b[1mtest\x1b[22m", "Check Run", "\x1b[90mSkipped\x1b[0m"},
 	}
