@@ -186,7 +186,8 @@ type AppInfo struct {
 }
 
 type CheckSuiteInfo struct {
-	App         AppInfo
+	// conditional include attempt to workaround https://github.com/grafana/wait-for-github/issues/668
+	App         AppInfo `graphql:"app @include(if: $includeApp)"`
 	WorkflowRun struct {
 		Workflow WorkflowInfo
 	}
@@ -516,7 +517,7 @@ func (c GHClient) MergePR(ctx context.Context, owner, repo string, prNumber int,
 	return nil
 }
 
-func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref string) (*StatusCheckRollup, []RollupContextNode, error) {
+func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref string, includeApp bool) (*StatusCheckRollup, []RollupContextNode, error) {
 	var query struct {
 		Repository struct {
 			Object struct {
@@ -532,6 +533,8 @@ func (c GHClient) getStatusCheckRollup(ctx context.Context, owner, repoName, ref
 		"repository": graphql.String(repoName),
 		"ref":        graphql.String(ref),
 		"cursor":     (*graphql.String)(nil),
+		// attempt to workaround https://github.com/grafana/wait-for-github/issues/668
+		"includeApp": graphql.Boolean(includeApp),
 	}
 
 	var allNodes []RollupContextNode
@@ -578,7 +581,7 @@ func hasChecksOrStatuses(rollup *StatusCheckRollup) bool {
 
 func (c GHClient) GetCIStatus(ctx context.Context, owner, repoName, ref string, excludes []string) (CIStatus, error) {
 	logger := c.logger.With(logging.OwnerAttr(owner), logging.RepoAttr(repoName), logging.RefAttr(ref))
-	rollup, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
+	rollup, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref, false)
 	if err != nil {
 		return CIStatusUnknown, err
 	}
@@ -794,7 +797,7 @@ func (c GHClient) GetCIStatusForChecks(ctx context.Context, owner, repoName stri
 }
 
 func (c GHClient) GetDetailedCIStatus(ctx context.Context, owner, repoName, ref string) ([]CICheckStatus, error) {
-	_, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref)
+	_, nodes, err := c.getStatusCheckRollup(ctx, owner, repoName, ref, true)
 	if err != nil {
 		return nil, err
 	}
