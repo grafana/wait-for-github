@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.7.4](https://github.com/grafana/wait-for-github/compare/v1.7.3...v1.7.4) (2026-11-06)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** infer check run type from workflow run instead of app ([#671](https://github.com/grafana/wait-for-github/issues/671)) ([c3088e7](https://github.com/grafana/wait-for-github/commit/c3088e74ab9bd606d83d7dbca2a0816f14ee336e)), closes [#668](https://github.com/grafana/wait-for-github/issues/668)
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update ca trust base images [security] ([#665](https://github.com/grafana/wait-for-github/issues/665)) ([eb873eb](https://github.com/grafana/wait-for-github/commit/eb873ebb35e8c1c46d908e269c8623721b4b1ba9))
+* **deps:** update gcr.io/distroless/static-debian13 docker digest to 4488103 [security] ([#672](https://github.com/grafana/wait-for-github/issues/672)) ([dceaa4c](https://github.com/grafana/wait-for-github/commit/dceaa4c9012f2c8df73495c88640f2f4d286ac89))
+* **deps:** update github/codeql-action action to v4.39.1 ([#666](https://github.com/grafana/wait-for-github/issues/666)) ([d3d156a](https://github.com/grafana/wait-for-github/commit/d3d156a5948e6ce39bba526efaf1bfc3762e38de))
+* **deps:** update golang:1.27.3-alpine3.23 docker digest to 5d51133 [security] ([#676](https://github.com/grafana/wait-for-github/issues/676)) ([a59a406](https://github.com/grafana/wait-for-github/commit/a59a406ec25267b1755f2f5cb9f561adf2c3fa53))
+* **deps:** update module github.com/goccy/go-json to v0.12.0 ([#673](https://github.com/grafana/wait-for-github/issues/673)) ([64051ba](https://github.com/grafana/wait-for-github/commit/64051bae2379e5d312efff536906c0d137795ff2))
+
 ## [1.7.3](https://github.com/grafana/wait-for-github/compare/v1.7.2...v1.7.3) (2026-10-23)
 
 
