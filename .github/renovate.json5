@@ -7,6 +7,7 @@
     'github>grafana/grafana-renovate-config//presets/go',
     'github>grafana/grafana-renovate-config//presets/shared-workflows',
   ],
-  dependencyDashboard: true,
+  dependencyDashboard: {
+    enabled: true,
+  },
 }
-
