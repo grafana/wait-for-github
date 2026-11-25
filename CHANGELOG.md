@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.7.4](https://github.com/grafana/wait-for-github/compare/v1.7.3...v1.7.4) (2026-11-25)
+
+
+### 🐛 Bug Fixes
+
+* **ci:** infer check run type from workflow run instead of app ([#671](https://github.com/grafana/wait-for-github/issues/671)) ([c3088e7](https://github.com/grafana/wait-for-github/commit/c3088e74ab9bd606d83d7dbca2a0816f14ee336e)), closes [#668](https://github.com/grafana/wait-for-github/issues/668)
+* **deps:** update module golang.org/x/oauth2 to v0.38.0 ([#678](https://github.com/grafana/wait-for-github/issues/678)) ([62c661d](https://github.com/grafana/wait-for-github/commit/62c661dd5ae91700fee411cf51f6d2e2f736c40d))
+* **deps:** update module golang.org/x/term to v0.48.0 ([#682](https://github.com/grafana/wait-for-github/issues/682)) ([882bb5c](https://github.com/grafana/wait-for-github/commit/882bb5ca3eef90fbcd75ca95e816ad876cbe370e))
+* **deps:** update module golang.org/x/text to v0.44.0 ([#683](https://github.com/grafana/wait-for-github/issues/683)) ([4ec0d47](https://github.com/grafana/wait-for-github/commit/4ec0d477c50e7a5453bd1e7797e125de3b5bc99b))
+* **security/unknown/:** update go toolchain directive to v1.27.4 [security] ([#679](https://github.com/grafana/wait-for-github/issues/679)) ([0a9a5eb](https://github.com/grafana/wait-for-github/commit/0a9a5eb5290cb6a7c2a37a95b03ae83bfa5cfaa6))
+
+
+### 🔧 Miscellaneous Chores
+
+* **deps:** update actions/setup-go action to v7.1.0 ([#685](https://github.com/grafana/wait-for-github/issues/685)) ([2a513cf](https://github.com/grafana/wait-for-github/commit/2a513cfa0208cae809756f7df8d8f6c9064d402b))
+* **deps:** update ca trust base images [security] ([#665](https://github.com/grafana/wait-for-github/issues/665)) ([eb873eb](https://github.com/grafana/wait-for-github/commit/eb873ebb35e8c1c46d908e269c8623721b4b1ba9))
+* **deps:** update ca trust base images [security] ([#681](https://github.com/grafana/wait-for-github/issues/681)) ([c933acd](https://github.com/grafana/wait-for-github/commit/c933acdadc85397b9134314b2eabf6e337670754))
+* **deps:** update gcr.io/distroless/static-debian13 docker digest to 4488103 [security] ([#672](https://github.com/grafana/wait-for-github/issues/672)) ([dceaa4c](https://github.com/grafana/wait-for-github/commit/dceaa4c9012f2c8df73495c88640f2f4d286ac89))
+* **deps:** update gcr.io/distroless/static-debian13 docker digest to 4c2cd1d [security] ([#686](https://github.com/grafana/wait-for-github/issues/686)) ([8851b90](https://github.com/grafana/wait-for-github/commit/8851b90d1ce3eeb8fd2ed63cac747945b8f8612c))
+* **deps:** update github/codeql-action action to v4.39.1 ([#666](https://github.com/grafana/wait-for-github/issues/666)) ([d3d156a](https://github.com/grafana/wait-for-github/commit/d3d156a5948e6ce39bba526efaf1bfc3762e38de))
+* **deps:** update github/codeql-action action to v4.39.3 ([#677](https://github.com/grafana/wait-for-github/issues/677)) ([9add469](https://github.com/grafana/wait-for-github/commit/9add469b9cf7097b46771582b7f18bac546da062))
+* **deps:** update github/codeql-action action to v4.39.4 ([#687](https://github.com/grafana/wait-for-github/issues/687)) ([921b16c](https://github.com/grafana/wait-for-github/commit/921b16c77231fa3848021a0f89eb66270fd41c5c))
+* **deps:** update golang docker tag to v1.27.4 [security] ([#680](https://github.com/grafana/wait-for-github/issues/680)) ([024114c](https://github.com/grafana/wait-for-github/commit/024114cf5d5fb6071765db8eeef75c17fc34c6f8))
+* **deps:** update golang:1.27.3-alpine3.23 docker digest to 5d51133 [security] ([#676](https://github.com/grafana/wait-for-github/issues/676)) ([a59a406](https://github.com/grafana/wait-for-github/commit/a59a406ec25267b1755f2f5cb9f561adf2c3fa53))
+* **deps:** update module github.com/goccy/go-json to v0.12.0 ([#673](https://github.com/grafana/wait-for-github/issues/673)) ([64051ba](https://github.com/grafana/wait-for-github/commit/64051bae2379e5d312efff536906c0d137795ff2))
+
 ## [1.7.3](https://github.com/grafana/wait-for-github/compare/v1.7.2...v1.7.3) (2026-10-23)
 
 
